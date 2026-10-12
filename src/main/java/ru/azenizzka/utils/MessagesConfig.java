@@ -39,7 +39,7 @@ public class MessagesConfig {
   // Ошибки и исключения
   public static final String BELL_TYPE_CONVERT_EXCEPTION = "Некорректный тип звонков";
   public static final String DAY_INPUT_EXCEPTION = "День указан неверно";
-  public static final String UNKNOWN_COMMAND_EXCEPTION = "Неизвестная команда. Воспользуйтесь меню.";
+  public static final String UNKNOWN_COMMAND_EXCEPTION = "Неизвестная команда.\n\nВозможные причины:\n- Не выбрана группа: просто отправьте её номер в чат (например, 234).\n- Сбой меню или случайный ввод: отправьте /start для возврата в меню.\n\nЕсли не можете разобраться с ошибкой — напишите @xvycy";
   public static final String GROUP_NOT_FOUND_EXCEPTION = "Группа не найдена на сайте колледжа";
   public static final String GROUP_NOT_DEFINED_EXCEPTION = "Сначала выберите группу в Настройках";
   public static final String NULL_BROADCAST_MESSAGE_EXCEPTION = "Текст сообщения не может быть пустым";

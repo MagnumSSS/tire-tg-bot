@@ -127,7 +127,8 @@ public class CommandsHandler implements Handler {
     try {
       DayUtil.convertStrToDay(textMessage);
       if (person.getGroupNum() == 0) {
-        return List.of(new ErrorMessage(person.getChatId(), "Сначала укажите группу! Просто отправьте номер вашей группы в чат (например: 214 или МР-131)."));
+        return List.of(new ErrorMessage(person.getChatId(), "Вы еще не выбрали группу. Отправьте номер вашей группы в чат (например, 234).
+Если возникла проблема — напишите @xvycy"));
       }
       return recessHandler.handle(update, person);
     } catch (Exception ignored) {
