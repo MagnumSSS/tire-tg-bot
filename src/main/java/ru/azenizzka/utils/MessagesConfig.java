@@ -19,7 +19,7 @@ public class MessagesConfig {
 
   // Заголовки и основные сообщения
   public static final String START_MESSAGE =
-      "Привет! Чтобы бот мог присылать расписание, укажи номер своей группы в Настройках.";
+      "Привет! Чтобы бот мог присылать расписание, просто напиши номер своей группы цифрами прямо в этот чат (например: 232).";
   public static final String BELL_MESSAGE = "🔔 Выберите тип звонков:";
   public static final String DAY_MESSAGE = "📅 Выберите день:";
   public static final String CHANGE_GROUP_MESSAGE = "Введите номер вашей группы (только цифры, например: 232):";

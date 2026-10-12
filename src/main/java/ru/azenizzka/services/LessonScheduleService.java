@@ -1,7 +1,6 @@
 package ru.azenizzka.services;
 
 import jakarta.annotation.PostConstruct;
-import java.io.IOException;
 import java.security.SecureRandom;
 import java.security.cert.X509Certificate;
 import java.util.*;
@@ -12,6 +11,7 @@ import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -20,12 +20,18 @@ import org.jsoup.select.Elements;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
+import ru.azenizzka.entities.Person;
+import ru.azenizzka.telegram.TelegramBot;
 import ru.azenizzka.utils.Day;
 import ru.azenizzka.utils.MessagesConfig;
 
 @Service
 @Slf4j
+@RequiredArgsConstructor
 public class LessonScheduleService {
+
+  private final PersonService personService;
 
   @Value("${schedule.url:https://ntmm.ru/5_screen.files/sheet001.htm}")
   private String scheduleUrl;
@@ -33,10 +39,7 @@ public class LessonScheduleService {
   private static final SSLSocketFactory SSL_SOCKET_FACTORY = createInsecureSslSocketFactory();
   private static final Pattern GROUP_PATTERN = Pattern.compile("(?<!\\d)\\d{2,3}(?!\\d)");
 
-  // Отформатированный текст расписания: [Группа -> [День -> Текст]]
   private final Map<String, Map<Day, String>> scheduleCache = new ConcurrentHashMap<>();
-
-  // Сырой список пар для звонков: [Группа -> [День -> Список пар [номер, предмет, каб]]]
   private final Map<String, Map<Day, List<List<String>>>> rawLessonsCache = new ConcurrentHashMap<>();
 
   @PostConstruct
@@ -51,54 +54,111 @@ public class LessonScheduleService {
 
   public synchronized void updateCache() {
     log.info("Запуск обновления кэша расписания...");
-    
-    // Создаем временные кэши, чтобы собрать данные со всех 8 страниц
+
     Map<String, Map<Day, String>> newScheduleCache = new HashMap<>();
     Map<String, Map<Day, List<List<String>>>> newRawCache = new HashMap<>();
-    
-    // Базовый URL до папки с расписанием (можно вынести в properties)
+
     String baseUrl = "https://ntmm.ru/incoming/R-OO/";
 
     for (int i = 1; i <= 8; i++) {
-        String url = baseUrl + i + "_screen.files/sheet001.htm";
-        try {
-            Document doc = Jsoup.connect(url)
-                .sslSocketFactory(SSL_SOCKET_FACTORY)
-                .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
-                .timeout(15_000)
-                .get();
+      String url = baseUrl + i + "_screen.files/sheet001.htm";
+      try {
+        Document doc = Jsoup.connect(url)
+            .sslSocketFactory(SSL_SOCKET_FACTORY)
+            .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
+            .timeout(15_000)
+            .get();
 
-            Element table = doc.selectFirst("table");
-            if (table == null) {
-                log.warn("Таблица расписания не найдена по адресу {}", url);
-                continue;
-            }
-
-            String[][] grid = buildMatrix(table);
-            
-            // Передаем временные кэши в парсер, чтобы он их наполнял
-            parseMatrix(grid, newScheduleCache, newRawCache);
-            log.info("Успешно спарсили страницу {}", i);
-            
-        } catch (Exception e) {
-            log.error("Ошибка при обновлении кэша с {}: {}", url, e.getMessage());
+        Element table = doc.selectFirst("table");
+        if (table == null) {
+          log.warn("Таблица расписания не найдена по адресу {}", url);
+          continue;
         }
+
+        String[][] grid = buildMatrix(table);
+        parseMatrix(grid, newScheduleCache, newRawCache);
+        log.info("Успешно спарсили страницу {}", i);
+
+      } catch (Exception e) {
+        log.error("Ошибка при обновлении кэша с {}: {}", url, e.getMessage());
+      }
     }
 
-    // После цикла проверяем, скачали ли мы хоть что-то
     if (!newScheduleCache.isEmpty()) {
-        scheduleCache.clear();
-        scheduleCache.putAll(newScheduleCache);
+      boolean wasInitialized = !scheduleCache.isEmpty();
 
-        rawLessonsCache.clear();
-        rawLessonsCache.putAll(newRawCache);
-        
-        log.info("Кэш успешно обновлен. Загружено групп: {}", scheduleCache.size());
+      if (wasInitialized) {
+        checkAndNotifyChanges(newScheduleCache);
+      }
+
+      scheduleCache.clear();
+      scheduleCache.putAll(newScheduleCache);
+
+      rawLessonsCache.clear();
+      rawLessonsCache.putAll(newRawCache);
+
+      log.info("Кэш успешно обновлен. Загружено групп: {}", scheduleCache.size());
     } else {
-        log.warn("Не удалось загрузить расписание ни с одной страницы!");
+      log.warn("Не удалось загрузить расписание ни с одной страницы!");
     }
   }
 
+  private void checkAndNotifyChanges(Map<String, Map<Day, String>> newScheduleCache) {
+    for (Map.Entry<String, Map<Day, String>> groupEntry : newScheduleCache.entrySet()) {
+      String groupStr = groupEntry.getKey();
+      Map<Day, String> newDays = groupEntry.getValue();
+      Map<Day, String> oldDays = scheduleCache.get(groupStr);
+
+      if (oldDays == null) continue;
+
+      int groupNum;
+      try {
+        groupNum = Integer.parseInt(groupStr);
+      } catch (NumberFormatException e) {
+        continue;
+      }
+
+      for (Map.Entry<Day, String> dayEntry : newDays.entrySet()) {
+        Day day = dayEntry.getKey();
+        String newText = dayEntry.getValue().trim();
+        String oldText = oldDays.getOrDefault(day, "").trim();
+
+        if (!newText.equals(oldText)) {
+          notifyStudentsOnScheduleChange(groupNum, day, newText);
+        }
+      }
+    }
+  }
+
+  public void notifyStudentsOnScheduleChange(int groupNum, Day day, String newScheduleText) {
+    String dayRus = switch (day) {
+      case MONDAY -> "Понедельник";
+      case TUESDAY -> "Вторник";
+      case WEDNESDAY -> "Среда";
+      case THURSDAY -> "Четверг";
+      case FRIDAY -> "Пятница";
+      case SATURDAY -> "Суббота";
+      default -> day.name();
+    };
+
+    List<SendMessage> notifications = new ArrayList<>();
+    for (Person p : personService.findAll()) {
+      if (p.getGroupNum() == groupNum && p.isNotificationsEnabled() && !p.isBanned()) {
+        SendMessage msg = new SendMessage(
+            p.getChatId(),
+            "🔔 *Обнаружено изменение в расписании!*\n"
+                + "🎓 Группа: *" + groupNum + "*\n"
+                + "📅 День: *" + dayRus + "*\n\n"
+                + "*Новое расписание:*\n"
+                + newScheduleText);
+        msg.enableMarkdown(true);
+        notifications.add(msg);
+      }
+    }
+    if (!notifications.isEmpty() && TelegramBot.getInstance() != null) {
+      TelegramBot.getInstance().sendMessage(notifications);
+    }
+  }
 
   public boolean isGroupExists(int group) {
     return isGroupExists(String.valueOf(group));
@@ -175,7 +235,7 @@ public class LessonScheduleService {
     return grid;
   }
 
-  private void parseMatrix(String[][] grid, Map<String, Map<Day, String>> newScheduleCache, 
+  private void parseMatrix(String[][] grid, Map<String, Map<Day, String>> newScheduleCache,
                            Map<String, Map<Day, List<List<String>>>> newRawCache) {
     int groupRowIndex = -1;
     for (int r = 0; r < Math.min(10, grid.length); r++) {
@@ -210,7 +270,6 @@ public class LessonScheduleService {
       }
     }
 
-    // 1. Разбиваем строки на блоки дней по началу 1-й пары в служебных колонках
     List<List<Integer>> dayBlocks = new ArrayList<>();
     List<Integer> currentBlock = null;
 
@@ -234,7 +293,6 @@ public class LessonScheduleService {
       }
     }
 
-    // 2. Определяем день недели для каждой строки
     Day[] defaultDays = {Day.MONDAY, Day.TUESDAY, Day.WEDNESDAY, Day.THURSDAY, Day.FRIDAY, Day.SATURDAY};
     Map<Integer, Day> rowToDay = new HashMap<>();
 
@@ -262,7 +320,6 @@ public class LessonScheduleService {
       }
     }
 
-    // 3. Парсим предметы групп с точной привязкой дня
     for (int r = groupRowIndex + 1; r < grid.length; r++) {
       Day currentDay = rowToDay.get(r);
       if (currentDay == null) continue;
@@ -297,7 +354,7 @@ public class LessonScheduleService {
 
   private Day parseDay(String text) {
     if (text == null) return null;
-    String t = text.replace(" ", " ").trim().toUpperCase();
+    String t = text.replace("\u00A0", " ").trim().toUpperCase();
     if (t.contains("ПОНЕДЕЛЬНИК") || t.equals("ПН")) return Day.MONDAY;
     if (t.contains("ВТОРНИК") || t.equals("ВТ")) return Day.TUESDAY;
     if (t.contains("СРЕДА") || t.equals("СР")) return Day.WEDNESDAY;

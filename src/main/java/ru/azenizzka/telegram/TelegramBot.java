@@ -42,7 +42,7 @@ public class TelegramBot extends TelegramLongPollingBot {
     return configuration.getName();
   }
 
-@Override
+  @Override
   public void onUpdateReceived(Update update) {
     String chatId;
     String username;
@@ -58,7 +58,6 @@ public class TelegramBot extends TelegramLongPollingBot {
     }
 
     try {
-      // 1. Ищем пользователя или создаем нового
       Person person = personRepository.findByChatId(chatId);
       if (person == null) {
         person = new Person();
@@ -69,25 +68,22 @@ public class TelegramBot extends TelegramLongPollingBot {
         person.setUsername(username);
       }
 
-      // 2. Проверяем админа из .env вместо хардкода
       if (configuration.getAdminChatId() != null
           && !configuration.getAdminChatId().isBlank()
           && configuration.getAdminChatId().equals(chatId)) {
         person.setAdmin(true);
       }
 
-      // 3. Передаем апдейт в FSM роутер
       List<SendMessage> responses = masterHandler.handle(update, person);
 
-      // 4. Одиночное сохранение состояния в БД
       personRepository.save(person);
 
-      // 5. Отправка сообщений
       sendMessage(responses);
     } catch (Exception e) {
       log.error("Ошибка при обработке события от chatId {}: {}", chatId, e.getMessage(), e);
     }
   }
+
   public void sendMessage(List<SendMessage> messages) {
     if (messages == null || messages.isEmpty()) {
       return;

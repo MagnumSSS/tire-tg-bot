@@ -8,7 +8,7 @@ import ru.azenizzka.entities.Person;
 import ru.azenizzka.services.BellScheduleService;
 import ru.azenizzka.services.LessonScheduleService;
 import ru.azenizzka.telegram.TelegramBot;
-import ru.azenizzka.telegram.keyboards.KeyboardType;
+import ru.azenizzka.telegram.keyboards.MainKeyboard;
 import ru.azenizzka.telegram.keyboards.ReportKeyboard;
 import ru.azenizzka.telegram.messages.CustomMessage;
 import ru.azenizzka.telegram.messages.ErrorMessage;
@@ -38,20 +38,19 @@ public class RecessHandler implements Handler {
     try {
       Day day = DayUtil.convertStrToDay(textMessage);
 
-      // 1. Возвращаем нижнее меню MAIN через промежуточное сообщение ожидания
       CustomMessage pleaseWaitMessage =
           new CustomMessage(
               person.getChatId(),
-              KeyboardType.MAIN,
-              "⏳ Пожалуйста, подождите. Получаю расписание с сайта..");
+              "⏳ Пожалуйста, подождите. Получаю расписание..");
+      MainKeyboard.addKeyboard(pleaseWaitMessage, person.isCompactMenu());
       TelegramBot.getInstance().sendMessage(List.of(pleaseWaitMessage));
 
       List<List<String>> lessons = lessonScheduleService.getLessons(person.getGroupNum(), day);
 
       if (lessons.isEmpty()) {
-        return List.of(
-            new CustomMessage(
-                person.getChatId(), KeyboardType.MAIN, MessagesConfig.NO_LESSONS_MESSAGE));
+        CustomMessage noLessons = new CustomMessage(person.getChatId(), MessagesConfig.NO_LESSONS_MESSAGE);
+        MainKeyboard.addKeyboard(noLessons, person.isCompactMenu());
+        return List.of(noLessons);
       }
 
       StringBuilder result =
@@ -74,7 +73,6 @@ public class RecessHandler implements Handler {
         result.append("\n");
       }
 
-      // 2. Формируем сообщение с расписанием и крепим ТОЛЬКО Inline-кнопку
       SendMessage scheduleMessage = new SendMessage(person.getChatId(), result.toString().trim());
       scheduleMessage.enableMarkdown(true);
       scheduleMessage.setReplyMarkup(ReportKeyboard.getKeyboard(textMessage));

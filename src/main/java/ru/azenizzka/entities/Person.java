@@ -16,13 +16,17 @@ public class Person {
   private int id;
 
   private String chatId;
-
   private int groupNum;
-
   private String username;
   private boolean isAdmin;
   private InputType inputType;
 
   private boolean isBanned = false;
   private boolean isReportMuted = false;
+
+  @Column(columnDefinition = "boolean default true")
+  private boolean notificationsEnabled = true;
+
+  @Column(columnDefinition = "boolean default false")
+  private boolean compactMenu = false;
 }
