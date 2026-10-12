@@ -4,6 +4,7 @@ import jakarta.annotation.PostConstruct;
 import java.security.SecureRandom;
 import java.security.cert.X509Certificate;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -21,9 +22,11 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
+import ru.azenizzka.configuration.TelegramBotConfiguration;
 import ru.azenizzka.entities.Person;
 import ru.azenizzka.telegram.TelegramBot;
 import ru.azenizzka.utils.Day;
+import ru.azenizzka.utils.DayUtil;
 import ru.azenizzka.utils.MessagesConfig;
 
 @Service
@@ -32,6 +35,8 @@ import ru.azenizzka.utils.MessagesConfig;
 public class LessonScheduleService {
 
   private final PersonService personService;
+  private final BellScheduleService bellScheduleService;
+  private final TelegramBotConfiguration botConfiguration;
 
   @Value("${schedule.url:https://ntmm.ru/5_screen.files/sheet001.htm}")
   private String scheduleUrl;
@@ -50,6 +55,88 @@ public class LessonScheduleService {
   @Scheduled(fixedRate = 10 * 60 * 1000)
   public void scheduledCacheUpdate() {
     updateCache();
+  }
+
+  // Ежедневно в 08:00 по Новосибирску (ПН-СБ) — расписание на СЕГОДНЯ в групповые чаты с закрепом
+  @Scheduled(cron = "0 0 8 * * MON-SAT", zone = "Asia/Novosibirsk")
+  public void sendMorningGroupSchedules() {
+    try {
+      Day today = DayUtil.convertStrToDay("сегодня");
+      broadcastPinnedToGroups(today, "сегодня (" + formatDayRus(today) + ")");
+    } catch (Exception e) {
+      log.error("Ошибка утренней рассылки в группы: {}", e.getMessage());
+    }
+  }
+
+  // Ежедневно в 18:00 по Новосибирску (ПН-СБ) — расписание на ЗАВТРА в групповые чаты с закрепом
+  @Scheduled(cron = "0 0 18 * * MON-SAT", zone = "Asia/Novosibirsk")
+  public void sendEveningGroupSchedules() {
+    try {
+      Day tomorrow = DayUtil.convertStrToDay("завтра");
+      broadcastPinnedToGroups(tomorrow, "завтра (" + formatDayRus(tomorrow) + ")");
+    } catch (Exception e) {
+      log.error("Ошибка вечерней рассылки в группы: {}", e.getMessage());
+    }
+  }
+
+  private void broadcastPinnedToGroups(Day day, String label) {
+    if (TelegramBot.getInstance() == null) return;
+
+    CompletableFuture.runAsync(() -> {
+      for (Person p : personService.findAll()) {
+        if (p.getChatId() != null
+            && p.getChatId().startsWith("-")
+            && !p.getChatId().equals(botConfiguration.getAuditLogChatId())
+            && p.getGroupNum() != 0
+            && p.isNotificationsEnabled()
+            && !p.isBanned()) {
+          String text = buildDetailedScheduleText(p.getGroupNum(), day, label);
+          TelegramBot.getInstance().sendAndPinSchedule(p, text);
+          try {
+            Thread.sleep(60L);
+          } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            break;
+          }
+        }
+      }
+    });
+  }
+
+  public String buildDetailedScheduleText(int groupNum, Day day, String label) {
+    List<List<String>> lessons = getLessons(groupNum, day);
+    if (lessons.isEmpty()) {
+      return "📌 *Расписание " + groupNum + " группы на " + label + "*\n\n" + MessagesConfig.NO_LESSONS_MESSAGE;
+    }
+
+    StringBuilder result = new StringBuilder("📌 *Расписание " + groupNum + " группы*\n*" + label + "*\n\n");
+    for (List<String> list : lessons) {
+      int lessonNum = 0;
+      try {
+        lessonNum = Integer.parseInt(list.get(0).replaceAll("[^0-9]", ""));
+      } catch (Exception ignored) {
+      }
+      String bellTime = bellScheduleService.getBellTime(day, lessonNum);
+      result.append("*").append(list.get(0)).append(" пара:* ").append(list.get(1)).append("\n");
+      result.append("*Кабинет:* ").append(list.get(2)).append("\n");
+      if (!bellTime.isBlank()) {
+        result.append("⏱ `").append(bellTime).append("`\n");
+      }
+      result.append("\n");
+    }
+    return result.toString().trim();
+  }
+
+  private String formatDayRus(Day day) {
+    return switch (day) {
+      case MONDAY -> "Понедельник";
+      case TUESDAY -> "Вторник";
+      case WEDNESDAY -> "Среда";
+      case THURSDAY -> "Четверг";
+      case FRIDAY -> "Пятница";
+      case SATURDAY -> "Суббота";
+      default -> day.name();
+    };
   }
 
   private List<String> discoverSheetUrls() {
@@ -120,11 +207,8 @@ public class LessonScheduleService {
     }
 
     if (!newScheduleCache.isEmpty()) {
-      boolean wasInitialized = !scheduleCache.isEmpty();
-
-      if (wasInitialized) {
-        checkAndNotifyChanges(newScheduleCache);
-      }
+      Map<String, Map<Day, String>> oldCacheSnapshot = new HashMap<>(scheduleCache);
+      boolean wasInitialized = !oldCacheSnapshot.isEmpty();
 
       scheduleCache.clear();
       scheduleCache.putAll(newScheduleCache);
@@ -132,17 +216,21 @@ public class LessonScheduleService {
       rawLessonsCache.clear();
       rawLessonsCache.putAll(newRawCache);
 
+      if (wasInitialized) {
+        checkAndNotifyChanges(newScheduleCache, oldCacheSnapshot);
+      }
+
       log.info("Кэш успешно обновлен. Загружено групп: {}", scheduleCache.size());
     } else {
       log.warn("Не удалось загрузить расписание ни с одной страницы!");
     }
   }
 
-  private void checkAndNotifyChanges(Map<String, Map<Day, String>> newScheduleCache) {
+  private void checkAndNotifyChanges(Map<String, Map<Day, String>> newScheduleCache, Map<String, Map<Day, String>> oldScheduleCache) {
     for (Map.Entry<String, Map<Day, String>> groupEntry : newScheduleCache.entrySet()) {
       String groupStr = groupEntry.getKey();
       Map<Day, String> newDays = groupEntry.getValue();
-      Map<Day, String> oldDays = scheduleCache.get(groupStr);
+      Map<Day, String> oldDays = oldScheduleCache.get(groupStr);
 
       if (oldDays == null) continue;
 
@@ -166,32 +254,31 @@ public class LessonScheduleService {
   }
 
   public void notifyStudentsOnScheduleChange(int groupNum, Day day, String newScheduleText) {
-    String dayRus = switch (day) {
-      case MONDAY -> "Понедельник";
-      case TUESDAY -> "Вторник";
-      case WEDNESDAY -> "Среда";
-      case THURSDAY -> "Четверг";
-      case FRIDAY -> "Пятница";
-      case SATURDAY -> "Суббота";
-      default -> day.name();
-    };
+    String dayRus = formatDayRus(day);
 
     List<SendMessage> notifications = new ArrayList<>();
     for (Person p : personService.findAll()) {
       if (p.getGroupNum() == groupNum && p.isNotificationsEnabled() && !p.isBanned()) {
-        SendMessage msg = new SendMessage(
-            p.getChatId(),
-            "🔔 *Обнаружено изменение в расписании!*\n"
-                + "🎓 Группа: *" + groupNum + "*\n"
-                + "📅 День: *" + dayRus + "*\n\n"
-                + "*Новое расписание:*\n"
-                + newScheduleText);
-        msg.enableMarkdown(true);
-        notifications.add(msg);
+        if (p.getChatId() != null && p.getChatId().startsWith("-")) {
+          if (TelegramBot.getInstance() != null && !p.getChatId().equals(botConfiguration.getAuditLogChatId())) {
+            String pinText = "🔔 *Обновление расписания!*\n\n" + buildDetailedScheduleText(groupNum, day, dayRus);
+            TelegramBot.getInstance().sendAndPinSchedule(p, pinText);
+          }
+        } else {
+          SendMessage msg = new SendMessage(
+              p.getChatId(),
+              "🔔 *Обнаружено изменение в расписании!*\n"
+                  + "🎓 Группа: *" + groupNum + "*\n"
+                  + "📅 День: *" + dayRus + "*\n\n"
+                  + "*Новое расписание:*\n"
+                  + newScheduleText);
+          msg.enableMarkdown(true);
+          notifications.add(msg);
+        }
       }
     }
     if (!notifications.isEmpty() && TelegramBot.getInstance() != null) {
-      TelegramBot.getInstance().sendMessage(notifications);
+      TelegramBot.getInstance().broadcastAsync(notifications, null);
     }
   }
 
