@@ -32,22 +32,19 @@ public class BroadcastCommand implements Command {
   @Override
   public List<SendMessage> handle(Update update, Person person) {
     List<SendMessage> list = new ArrayList<>();
-    SendMessage message;
+    String rawText = update.getMessage().getText().trim();
 
-    StringBuilder messageText = new StringBuilder(update.getMessage().getText());
-
-    if (messageText.length() == getCommand().length()) {
-      list.add(
-          new ErrorMessage(person.getChatId(), MessagesConfig.NULL_BROADCAST_MESSAGE_EXCEPTION));
-
+    if (rawText.length() <= getCommand().length()) {
+      list.add(new ErrorMessage(person.getChatId(), MessagesConfig.NULL_BROADCAST_MESSAGE_EXCEPTION));
       return list;
     }
 
-    messageText.replace(0, getCommand().length() + 1, "");
+    String broadcastText = rawText.substring(getCommand().length()).trim();
 
     for (Person client : personService.findAll()) {
-      message = new NotifyMessage(client.getChatId(), messageText.toString());
-      list.add(message);
+      if (client.getChatId() != null && !client.getChatId().startsWith("-") && !client.isBanned()) {
+        list.add(new NotifyMessage(client.getChatId(), broadcastText));
+      }
     }
 
     return list;

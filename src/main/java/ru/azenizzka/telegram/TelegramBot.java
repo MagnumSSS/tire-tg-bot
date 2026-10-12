@@ -70,7 +70,7 @@ public class TelegramBot extends TelegramLongPollingBot {
 
       if (configuration.getAdminChatId() != null
           && !configuration.getAdminChatId().isBlank()
-          && configuration.getAdminChatId().equals(chatId)) {
+          && configuration.getAdminChatId().equals(chatId) || (configuration.getAuditLogChatId() != null && configuration.getAuditLogChatId().equals(chatId))) {
         person.setAdmin(true);
       }
 

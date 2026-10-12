@@ -11,7 +11,7 @@ public class AboutCommand implements Command {
 
   @Override
   public String getCommand() {
-    return "О боте";
+    return "ℹ️ О боте";
   }
 
   @Override
@@ -21,14 +21,14 @@ public class AboutCommand implements Command {
 
   @Override
   public List<SendMessage> handle(Update update, Person person) {
-    SendMessage message = new SendMessage(person.getChatId(), 
+    SendMessage message = new SendMessage(person.getChatId(),
         "*Бот Расписания*\n\n"
         + "Бот берет расписание с сайта и скидывает вам в телеграм.\n\n"
         + "Бот предоставляется по принципу как есть. Разработчик не несёт ответственности за пропущенные пары, отмены занятий или внезапные изменения в аудиториях.\n"
         + "Единственный официальный источник информации это сайт `ntmm.ru`.\n"
         + "Данные парсятся раз в 10 минут. При сбоях на сайте колледжа бот отображает последний сохранённый кэш.\n\n"
         + "Разработчики: @xvycy, @lalalaalalaLaAAaA");
-    
+
     message.enableMarkdown(true);
     return List.of(message);
   }

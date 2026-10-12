@@ -54,10 +54,23 @@ public class MasterHandler implements Handler {
       return List.of();
     }
 
-    if (person.getChatId().equals(configuration.getAuditLogChatId())
-        && update.hasMessage()
-        && update.getMessage().isReply()) {
-      return auditLogHandler.handle(update, person);
+    String text = update.hasMessage() && update.getMessage().hasText()
+        ? update.getMessage().getText().trim()
+        : "";
+
+    // Если пишут в аудит-чате:
+    if (person.getChatId().equals(configuration.getAuditLogChatId())) {
+      person.setAdmin(true);
+      // 1. Если это реплай на лог ошибки (/ban или ответ юзеру) -> в AuditLogHandler
+      if (update.hasMessage() && update.getMessage().isReply()) {
+        return auditLogHandler.handle(update, person);
+      }
+      // 2. Если это команда (например, /broadcast или /info) -> выполняем через CommandsHandler
+      if (text.startsWith("/")) {
+        return commandsHandler.handle(update, person);
+      }
+      // 3. Обычные сообщения в аудит-чате игнорируем
+      return List.of();
     }
 
     List<SendMessage> messages = new ArrayList<>();
@@ -66,10 +79,6 @@ public class MasterHandler implements Handler {
       messages.add(new ErrorMessage(person.getChatId(), "Ошибка доступа к боту.."));
       return messages;
     }
-
-    String text = update.hasMessage() && update.getMessage().hasText()
-        ? update.getMessage().getText().trim()
-        : "";
 
     if (text.equalsIgnoreCase(MessagesConfig.START_COMMAND) || text.toLowerCase().startsWith("/start")) {
       person.setInputType(InputType.COMMAND);
@@ -83,7 +92,12 @@ public class MasterHandler implements Handler {
       return List.of(backMsg);
     }
 
-    if (text.matches("^\\d{1,5}$")) {
+    // Если нажали любую кнопку главного меню или ввели цифры, сбрасываем застрявший стейт в COMMAND
+    if (text.matches("^\\d{1,5}$")
+        || text.equals("ℹ️ О боте")
+        || text.equals(MessagesConfig.SETTINGS_COMMAND)
+        || text.equals(MessagesConfig.RECESS_SCHEDULE_COMMAND)
+        || text.equals(MessagesConfig.LESSON_SCHEDULE_COMMAND)) {
       person.setInputType(InputType.COMMAND);
     }
 
