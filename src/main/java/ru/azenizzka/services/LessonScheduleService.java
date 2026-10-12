@@ -76,7 +76,7 @@ public class LessonScheduleService {
     }
 
     if (urls.isEmpty()) {
-      String baseUrl = "https://ntmm.ru/incoming/R-OO/"\;
+      String baseUrl = "https://ntmm.ru/incoming/R-OO/";
       for (int i = 1; i <= 8; i++) {
         if (i == 2) {
           urls.add(baseUrl + "2_screen1.files/sheet001.htm");
