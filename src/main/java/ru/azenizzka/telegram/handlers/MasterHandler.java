@@ -93,7 +93,7 @@ public class MasterHandler implements Handler {
     }
 
     // Если нажали любую кнопку главного меню или ввели цифры, сбрасываем застрявший стейт в COMMAND
-    if (text.matches("^\\d{1,5}$")
+    if ((!text.startsWith("/") && text.matches(".*\\d{2,3}.*"))
         || text.equals("ℹ️ О боте")
         || text.equals(MessagesConfig.SETTINGS_COMMAND)
         || text.equals(MessagesConfig.RECESS_SCHEDULE_COMMAND)
