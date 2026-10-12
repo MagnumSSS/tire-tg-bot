@@ -6,6 +6,7 @@ import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import ru.azenizzka.entities.Person;
+import ru.azenizzka.services.LessonScheduleService;
 import ru.azenizzka.services.PersonService;
 import ru.azenizzka.telegram.commands.Command;
 import ru.azenizzka.telegram.keyboards.MainKeyboard;
@@ -19,6 +20,7 @@ import ru.azenizzka.utils.MessagesConfig;
 public class CommandsHandler implements Handler {
   private final List<Command> commands;
   private final PersonService personService;
+  private final LessonScheduleService lessonScheduleService;
   private final RecessHandler recessHandler;
 
   @Override
@@ -26,10 +28,13 @@ public class CommandsHandler implements Handler {
     String rawText = update.getMessage().getText().trim();
     String textMessage = rawText.toLowerCase();
 
-    // 1. Мягкий фильтр: любые цифры = смена номера группы
+    // 1. Ввод номера группы цифрами прямо в чат
     if (rawText.matches("^\\d{1,5}$")) {
       try {
         int groupNum = Integer.parseInt(rawText);
+        if (!lessonScheduleService.isGroupExists(groupNum)) {
+          return List.of(new ErrorMessage(person.getChatId(), MessagesConfig.UNKNOWN_GROUP_EXCEPTION));
+        }
         person.setGroupNum(groupNum);
         personService.save(person);
 

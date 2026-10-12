@@ -52,16 +52,51 @@ public class LessonScheduleService {
     updateCache();
   }
 
+  private List<String> discoverSheetUrls() {
+    Set<String> urls = new LinkedHashSet<>();
+    try {
+      Document indexDoc = Jsoup.connect("https://ntmm.ru/student/raspisanie.php")
+          .sslSocketFactory(SSL_SOCKET_FACTORY)
+          .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
+          .timeout(15_000)
+          .get();
+
+      for (Element a : indexDoc.select("a[href]")) {
+        String href = a.attr("href").trim();
+        if (href.contains("/incoming/R-OO/") && (href.endsWith(".htm") || href.endsWith(".html"))) {
+          String fullUrl = href.startsWith("http")
+              ? href
+              : "https://ntmm.ru" + (href.startsWith("/") ? "" : "/") + href;
+          String sheetUrl = fullUrl.replaceAll("\\.html?$", ".files/sheet001.htm");
+          urls.add(sheetUrl);
+        }
+      }
+    } catch (Exception e) {
+      log.warn("Не удалось получить список ссылок с raspisanie.php: {}", e.getMessage());
+    }
+
+    if (urls.isEmpty()) {
+      String baseUrl = "https://ntmm.ru/incoming/R-OO/"\;
+      for (int i = 1; i <= 8; i++) {
+        if (i == 2) {
+          urls.add(baseUrl + "2_screen1.files/sheet001.htm");
+        }
+        urls.add(baseUrl + i + "_screen.files/sheet001.htm");
+      }
+    }
+
+    return new ArrayList<>(urls);
+  }
+
   public synchronized void updateCache() {
     log.info("Запуск обновления кэша расписания...");
 
     Map<String, Map<Day, String>> newScheduleCache = new HashMap<>();
     Map<String, Map<Day, List<List<String>>>> newRawCache = new HashMap<>();
 
-    String baseUrl = "https://ntmm.ru/incoming/R-OO/";
+    List<String> sheetUrls = discoverSheetUrls();
 
-    for (int i = 1; i <= 8; i++) {
-      String url = baseUrl + i + "_screen.files/sheet001.htm";
+    for (String url : sheetUrls) {
       try {
         Document doc = Jsoup.connect(url)
             .sslSocketFactory(SSL_SOCKET_FACTORY)
@@ -77,7 +112,7 @@ public class LessonScheduleService {
 
         String[][] grid = buildMatrix(table);
         parseMatrix(grid, newScheduleCache, newRawCache);
-        log.info("Успешно спарсили страницу {}", i);
+        log.info("Успешно спарсили {}", url);
 
       } catch (Exception e) {
         log.error("Ошибка при обновлении кэша с {}: {}", url, e.getMessage());
