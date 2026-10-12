@@ -35,8 +35,18 @@ public class SettingsCommand implements Command {
   }
 
   public static String buildText(Person person) {
+    boolean isGroupChat = person.getChatId() != null && person.getChatId().startsWith("-");
     String groupStr = person.getGroupNum() == 0 ? "Не выбрана" : String.valueOf(person.getGroupNum());
     String notifyStr = person.isNotificationsEnabled() ? "✅ Включены" : "❌ Выключены";
+
+    if (isGroupChat) {
+      return "⚙️ *Настройки группового чата*\n\n"
+          + "🎓 *Группа чата:* `" + groupStr + "`\n"
+          + "📌 *Ежедневная рассылка (08:00 и 18:00) + закреп:* " + notifyStr + "\n\n"
+          + "💡 _Сменить группу чата (для админов):_ `/group 234`\n"
+          + "📅 _Команды в чате:_ `/today`, `/tomorrow`, `/bells`, `/settings`";
+    }
+
     String menuStr = person.isCompactMenu() ? "Компактное (Сегодня/Завтра)" : "Полное (Все дни недели)";
 
     return "⚙️ *Настройки профиля*\n\n"
@@ -47,18 +57,21 @@ public class SettingsCommand implements Command {
   }
 
   public static InlineKeyboardMarkup buildInlineKeyboard(Person person) {
+    boolean isGroupChat = person.getChatId() != null && person.getChatId().startsWith("-");
     InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
     List<List<InlineKeyboardButton>> rows = new ArrayList<>();
 
     InlineKeyboardButton notifyBtn = new InlineKeyboardButton();
-    notifyBtn.setText(person.isNotificationsEnabled() ? "🔕 Выключить уведомления" : "🔔 Включить уведомления");
+    notifyBtn.setText(person.isNotificationsEnabled() ? "🔕 Выключить авто-рассылку" : "🔔 Включить авто-рассылку");
     notifyBtn.setCallbackData(TOGGLE_NOTIFY_CALLBACK);
     rows.add(List.of(notifyBtn));
 
-    InlineKeyboardButton menuBtn = new InlineKeyboardButton();
-    menuBtn.setText(person.isCompactMenu() ? "📅 Включить полное меню (все дни)" : "📱 Включить компактное меню");
-    menuBtn.setCallbackData(TOGGLE_MENU_CALLBACK);
-    rows.add(List.of(menuBtn));
+    if (!isGroupChat) {
+      InlineKeyboardButton menuBtn = new InlineKeyboardButton();
+      menuBtn.setText(person.isCompactMenu() ? "📅 Включить полное меню (все дни)" : "📱 Включить компактное меню");
+      menuBtn.setCallbackData(TOGGLE_MENU_CALLBACK);
+      rows.add(List.of(menuBtn));
+    }
 
     markup.setKeyboard(rows);
     return markup;

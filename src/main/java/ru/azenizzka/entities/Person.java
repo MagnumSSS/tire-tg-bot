@@ -24,9 +24,11 @@ public class Person {
   private boolean isBanned = false;
   private boolean isReportMuted = false;
 
-  @Column(columnDefinition = "boolean default true")
-  private boolean notificationsEnabled = true;
+  @Column(columnDefinition = "boolean default false")
+  private boolean notificationsEnabled = false;
 
   @Column(columnDefinition = "boolean default false")
   private boolean compactMenu = false;
+
+  private Integer pinnedMessageId;
 }

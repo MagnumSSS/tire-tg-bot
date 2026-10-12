@@ -46,6 +46,15 @@ public class CallbackQueryHandler {
     String data = callbackQuery.getData();
     if (data == null || person == null) return;
 
+    boolean isGroup = person.getChatId().startsWith("-");
+
+    if (data.equals(SettingsCommand.TOGGLE_NOTIFY_CALLBACK) || data.equals(SettingsCommand.TOGGLE_MENU_CALLBACK)) {
+      if (isGroup && !telegramBot.isGroupAdmin(person.getChatId(), callbackQuery.getFrom().getId())) {
+        answer(callbackQuery.getId(), "⛔ Менять настройки чата могут только администраторы группы!", true);
+        return;
+      }
+    }
+
     if (data.equals(SettingsCommand.TOGGLE_NOTIFY_CALLBACK)) {
       handleToggleNotify(callbackQuery, person);
     } else if (data.equals(SettingsCommand.TOGGLE_MENU_CALLBACK)) {
@@ -67,6 +76,9 @@ public class CallbackQueryHandler {
   }
 
   private void handleToggleMenu(CallbackQuery query, Person person) {
+    if (person.getChatId().startsWith("-")) {
+      return;
+    }
     person.setCompactMenu(!person.isCompactMenu());
 
     updateSettingsMessage(query, person);

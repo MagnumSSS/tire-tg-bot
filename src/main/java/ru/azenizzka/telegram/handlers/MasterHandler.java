@@ -58,21 +58,30 @@ public class MasterHandler implements Handler {
         ? update.getMessage().getText().trim()
         : "";
 
-    // Если пишут в аудит-чате:
+    // 1. Аудит-чат
     if (person.getChatId().equals(configuration.getAuditLogChatId())) {
       person.setAdmin(true);
-      // 1. Если это реплай на лог ошибки (/ban или ответ юзеру) -> в AuditLogHandler
       if (update.hasMessage() && update.getMessage().isReply()) {
         return auditLogHandler.handle(update, person);
       }
-      // 2. Если это команда (например, /broadcast или /info) -> выполняем через CommandsHandler
       if (text.startsWith("/")) {
         return commandsHandler.handle(update, person);
       }
-      // 3. Обычные сообщения в аудит-чате игнорируем
       return List.of();
     }
 
+    // 2. Обычные групповые чаты (работаем ТОЛЬКО по слэш-командам)
+    if (person.getChatId().startsWith("-")) {
+      if (person.isBanned()) {
+        return List.of();
+      }
+      if (!text.startsWith("/")) {
+        return List.of();
+      }
+      return commandsHandler.handleGroupCommand(update, person);
+    }
+
+    // 3. Личные сообщения с ботом
     List<SendMessage> messages = new ArrayList<>();
 
     if (person.isBanned()) {
@@ -92,7 +101,6 @@ public class MasterHandler implements Handler {
       return List.of(backMsg);
     }
 
-    // Если нажали любую кнопку главного меню или ввели цифры, сбрасываем застрявший стейт в COMMAND
     if ((!text.startsWith("/") && text.matches(".*\\d{2,3}.*"))
         || text.equals("ℹ️ О боте")
         || text.equals(MessagesConfig.SETTINGS_COMMAND)

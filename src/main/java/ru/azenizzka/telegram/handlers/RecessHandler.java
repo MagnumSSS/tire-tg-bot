@@ -29,51 +29,69 @@ public class RecessHandler implements Handler {
     this.bellScheduleService = bellScheduleService;
   }
 
+  public String formatDaySchedule(int groupNum, Day day, String label) {
+    List<List<String>> lessons = lessonScheduleService.getLessons(groupNum, day);
+    if (lessons.isEmpty()) {
+      return "Расписание *" + groupNum + "* группы (" + label + "):\n\n" + MessagesConfig.NO_LESSONS_MESSAGE;
+    }
+
+    StringBuilder result =
+        new StringBuilder(
+            "Расписание *" + groupNum + "* группы\n*" + label + "*\n\n");
+
+    for (List<String> list : lessons) {
+      int lessonNum = 0;
+      try {
+        lessonNum = Integer.parseInt(list.get(0).replaceAll("[^0-9]", ""));
+      } catch (Exception ignored) {
+      }
+
+      String bellTime = bellScheduleService.getBellTime(day, lessonNum);
+
+      result.append("*").append(list.get(0)).append(" пара:* ").append(list.get(1)).append("\n");
+      result.append("*Кабинет:* ").append(list.get(2)).append("\n");
+      if (!bellTime.isBlank()) {
+        result.append("⏱ `").append(bellTime).append("`\n");
+      }
+      result.append("\n");
+    }
+
+    return result.toString().trim();
+  }
+
   @Override
   public List<SendMessage> handle(Update update, Person person) {
     person.setInputType(InputType.COMMAND);
+    boolean isGroupChat = person.getChatId().startsWith("-");
 
-    String textMessage = update.getMessage().getText().toLowerCase();
+    String textMessage = update.getMessage().getText().toLowerCase().trim();
+    if (textMessage.startsWith("/today")) textMessage = "сегодня";
+    else if (textMessage.startsWith("/tomorrow")) textMessage = "завтра";
 
     try {
       Day day = DayUtil.convertStrToDay(textMessage);
 
-      CustomMessage pleaseWaitMessage =
-          new CustomMessage(
-              person.getChatId(),
-              "⏳ Пожалуйста, подождите. Получаю расписание..");
-      MainKeyboard.addKeyboard(pleaseWaitMessage, person.isCompactMenu());
-      TelegramBot.getInstance().sendMessage(List.of(pleaseWaitMessage));
+      if (!isGroupChat) {
+        CustomMessage pleaseWaitMessage =
+            new CustomMessage(
+                person.getChatId(),
+                "⏳ Пожалуйста, подождите. Получаю расписание..");
+        MainKeyboard.addKeyboard(pleaseWaitMessage, person.isCompactMenu());
+        TelegramBot.getInstance().sendMessage(List.of(pleaseWaitMessage));
+      }
 
       List<List<String>> lessons = lessonScheduleService.getLessons(person.getGroupNum(), day);
 
       if (lessons.isEmpty()) {
         CustomMessage noLessons = new CustomMessage(person.getChatId(), MessagesConfig.NO_LESSONS_MESSAGE);
-        MainKeyboard.addKeyboard(noLessons, person.isCompactMenu());
+        if (!isGroupChat) {
+          MainKeyboard.addKeyboard(noLessons, person.isCompactMenu());
+        }
         return List.of(noLessons);
       }
 
-      StringBuilder result =
-          new StringBuilder(
-              "Расписание *" + person.getGroupNum() + "* группы\n*" + textMessage + "*\n\n");
-
-      for (List<String> list : lessons) {
-        int lessonNum = 0;
-        try {
-          lessonNum = Integer.parseInt(list.get(0).replaceAll("[^0-9]", ""));
-        } catch (Exception ignored) {}
-
-        String bellTime = bellScheduleService.getBellTime(day, lessonNum);
-
-        result.append("*").append(list.get(0)).append(" пара:* ").append(list.get(1)).append("\n");
-        result.append("*Кабинет:* ").append(list.get(2)).append("\n");
-        if (!bellTime.isBlank()) {
-          result.append("⏱ `").append(bellTime).append("`\n");
-        }
-        result.append("\n");
-      }
-
-      SendMessage scheduleMessage = new SendMessage(person.getChatId(), result.toString().trim());
+      String formatted = formatDaySchedule(person.getGroupNum(), day, textMessage);
+      SendMessage scheduleMessage = new SendMessage(person.getChatId(), formatted);
       scheduleMessage.enableMarkdown(true);
       scheduleMessage.setReplyMarkup(ReportKeyboard.getKeyboard(textMessage));
 
