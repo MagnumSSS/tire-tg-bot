@@ -59,7 +59,7 @@ public class LessonScheduleService {
   }
 
   // Ежедневно в 08:00 по Новосибирску (ПН-СБ) — расписание на СЕГОДНЯ в групповые чаты с закрепом
-  @Scheduled(cron = "0 0 8 * * MON-SAT", zone = "Asia/Novosibirsk")
+  @Scheduled(cron = "0 0 6 * * MON-SAT", zone = "Asia/Novosibirsk")
   public void sendMorningGroupSchedules() {
     try {
       Day today = DayUtil.convertStrToDay("сегодня");
@@ -70,7 +70,7 @@ public class LessonScheduleService {
   }
 
   // Ежедневно в 18:00 по Новосибирску (ПН-СБ) — расписание на ЗАВТРА в групповые чаты с закрепом
-  @Scheduled(cron = "0 0 18 * * MON-SAT", zone = "Asia/Novosibirsk")
+  @Scheduled(cron = "0 0 16 * * MON-SAT", zone = "Asia/Novosibirsk")
   public void sendEveningGroupSchedules() {
     try {
       Day tomorrow = DayUtil.convertStrToDay("завтра");
