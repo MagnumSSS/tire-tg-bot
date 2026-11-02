@@ -55,7 +55,7 @@ public class RecessHandler implements Handler {
       result.append("*").append(list.get(0)).append(" пара:* ").append(list.get(1)).append("\n");
       result.append("*Кабинет:* ").append(list.get(2)).append("\n");
       if (!bellTime.isBlank()) {
-        result.append("⏱ `").append(bellTime).append("`\n");
+        result.append(person.isMinimalistMode() ? "`" : "⏱ `").append(bellTime).append("`\n");
       }
       result.append("\n");
     }

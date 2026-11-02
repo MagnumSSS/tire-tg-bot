@@ -92,7 +92,7 @@ public class LessonScheduleService {
                 && p.getGroupNum() != 0
                 && p.isNotificationsEnabled()
                 && !p.isBanned()) {
-              String text = buildDetailedScheduleText(p.getGroupNum(), day, label);
+              String text = buildDetailedScheduleText(p.getGroupNum(), day, label, p.isMinimalistMode());
               TelegramBot.getInstance().sendAndPinSchedule(p, text);
               try {
                 Thread.sleep(60L);
@@ -105,7 +105,7 @@ public class LessonScheduleService {
         });
   }
 
-  public String buildDetailedScheduleText(int groupNum, Day day, String label) {
+  public String buildDetailedScheduleText(int groupNum, Day day, String label, boolean minimalist) {
     List<List<String>> lessons = getLessons(groupNum, day);
     if (lessons.isEmpty()) {
       return "📌 *Расписание "
@@ -128,7 +128,7 @@ public class LessonScheduleService {
       result.append("*").append(list.get(0)).append(" пара:* ").append(list.get(1)).append("\n");
       result.append("*Кабинет:* ").append(list.get(2)).append("\n");
       if (!bellTime.isBlank()) {
-        result.append("⏱ `").append(bellTime).append("`\n");
+        result.append(minimalist ? "`" : "⏱ `").append(bellTime).append("`\n");
       }
       result.append("\n");
     }
@@ -284,7 +284,7 @@ public class LessonScheduleService {
               && !p.getChatId().equals(botConfiguration.getAuditLogChatId())) {
             String pinText =
                 "🔔 *Обновление расписания!*\n\n"
-                    + buildDetailedScheduleText(groupNum, day, dayRus);
+                    + buildDetailedScheduleText(groupNum, day, dayRus, p.isMinimalistMode());
             TelegramBot.getInstance().sendAndPinSchedule(p, pinText);
           }
         } else {

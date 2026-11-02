@@ -30,7 +30,7 @@ public class BroadcastCommand implements Command {
   @Override
   public List<SendMessage> handle(Update update, Person person) {
     String rawText = update.getMessage().getText().trim();
-    
+
     if (rawText.length() <= getCommand().length()) {
       return List.of(
           new ErrorMessage(person.getChatId(), MessagesConfig.NULL_BROADCAST_MESSAGE_EXCEPTION));
@@ -43,7 +43,7 @@ public class BroadcastCommand implements Command {
       if (client.getChatId() != null
           && !client.getChatId().equals(person.getChatId())
           && !client.isBanned()) {
-          
+
         // Используем базовый SendMessage с отключенным Markdown
         SendMessage msg = new SendMessage(client.getChatId(), broadcastText);
         msg.enableMarkdown(false);
@@ -60,7 +60,7 @@ public class BroadcastCommand implements Command {
                 + list.size()
                 + "* чатов (~18 сообщ/сек).\nПо окончании пришлю отчёт и очищу БД от заблокировавших бота.");
     startedMsg.enableMarkdown(true);
-    
+
     return List.of(startedMsg);
   }
 }
