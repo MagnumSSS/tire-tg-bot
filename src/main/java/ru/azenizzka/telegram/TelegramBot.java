@@ -23,7 +23,7 @@ import ru.azenizzka.telegram.handlers.MasterHandler;
 @Component
 @Slf4j
 public class TelegramBot extends TelegramLongPollingBot {
-
+  private final java.util.concurrent.atomic.AtomicBoolean isBroadcasting = new java.util.concurrent.atomic.AtomicBoolean(false);
   private static final long RATE_LIMIT_DELAY_MS = 55L;
 
   private final PersonRepository personRepository;
@@ -197,58 +197,95 @@ public class TelegramBot extends TelegramLongPollingBot {
     }
   }
 
-  public void broadcastAsync(List<SendMessage> messages, String reportChatId) {
-    if (messages == null || messages.isEmpty()) {
-      return;
+public void broadcastAsync(List<SendMessage> messages, String reportChatId) {
+    if (!isBroadcasting.compareAndSet(false, true)) {
+        if (reportChatId != null) {
+            try {
+                SendMessage m = new SendMessage(reportChatId, "⚠️ *Рассылка уже идет.* Дождитесь окончания текущей.");
+                m.enableMarkdown(true);
+                execute(m);
+            } catch (Exception ignored) {}
+        }
+        return;
     }
 
-    CompletableFuture.runAsync(
-        () -> {
-          int success = 0;
-          int removed = 0;
-          int failed = 0;
+    if (messages == null || messages.isEmpty()) {
+        isBroadcasting.set(false);
+        return;
+    }
 
-          for (SendMessage message : messages) {
-            try {
-              execute(message);
-              success++;
-            } catch (TelegramApiException e) {
-              if (isDeadUserError(e)) {
-                cleanupDeadPerson(message.getChatId(), e.getMessage());
-                removed++;
-              } else {
-                failed++;
-                log.warn("Ошибка рассылки в chatId {}: {}", message.getChatId(), e.getMessage());
-              }
+    java.util.concurrent.CompletableFuture.runAsync(() -> {
+        try {
+            int success = 0;
+            int blocked = 0;
+            int errors = 0;
+
+            for (SendMessage message : messages) {
+                try {
+                    execute(message);
+                    success++;
+                } catch (org.telegram.telegrambots.meta.exceptions.TelegramApiRequestException e) {
+                    if (e.getErrorCode() == 429) {
+                        int retry = 3; // по умолчанию ждем 3 сек
+                        if (e.getParameters() != null && e.getParameters().getRetryAfter() != null) {
+                            retry = e.getParameters().getRetryAfter();
+                        } else {
+                            java.util.regex.Matcher m = java.util.regex.Pattern.compile("retry after (\\d+)").matcher(e.getMessage());
+                            if (m.find()) retry = Integer.parseInt(m.group(1));
+                        }
+                        log.warn("Флуд-контроль (429). Пауза {} сек...", retry);
+                        try {
+                            Thread.sleep((retry + 1) * 1000L);
+                            execute(message);
+                            success++;
+                        } catch (Exception ex) {
+                            errors++;
+                        }
+                    } else if (isDeadUserError(e)) {
+                        cleanupDeadPerson(message.getChatId(), e.getMessage());
+                        blocked++;
+                    } else {
+                        log.warn("Ошибка рассылки в chatId {}: {}", message.getChatId(), e.getMessage());
+                        errors++;
+                    }
+                } catch (org.telegram.telegrambots.meta.exceptions.TelegramApiException e) {
+                    if (isDeadUserError(e)) {
+                        cleanupDeadPerson(message.getChatId(), e.getMessage());
+                        blocked++;
+                    } else {
+                        log.warn("Ошибка рассылки в chatId {}: {}", message.getChatId(), e.getMessage());
+                        errors++;
+                    }
+                }
+
+                try {
+                    Thread.sleep(RATE_LIMIT_DELAY_MS);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
             }
 
-            try {
-              Thread.sleep(RATE_LIMIT_DELAY_MS);
-            } catch (InterruptedException ie) {
-              Thread.currentThread().interrupt();
-              break;
+            if (reportChatId != null) {
+                try {
+                    SendMessage report = new SendMessage(
+                        reportChatId,
+                        String.format(
+                            "📊 *Рассылка завершена!*\nДоставлено: *%d*\nУдалено неактивных из БД: *%d*\nПрочих ошибок: *%d*",
+                            success, blocked, errors
+                        )
+                    );
+                    report.enableMarkdown(true);
+                    execute(report);
+                } catch (org.telegram.telegrambots.meta.exceptions.TelegramApiException e) {
+                    log.error("Ошибка отправки отчета: {}", e.getMessage());
+                }
             }
-          }
-
-          if (reportChatId != null) {
-            try {
-              SendMessage report =
-                  new SendMessage(
-                      reportChatId,
-                      String.format(
-                          "📊 *Рассылка завершена!*\n"
-                              + "Доставлено: *%d*\n"
-                              + "Удалено неактивных из БД: *%d*\n"
-                              + "Прочих ошибок: *%d*",
-                          success, removed, failed));
-              report.enableMarkdown(true);
-              execute(report);
-            } catch (TelegramApiException ignored) {
-            }
-          }
-        });
-  }
-
+        } finally {
+            isBroadcasting.set(false);
+        }
+    });
+}
   public void sendMessage(List<SendMessage> messages) {
     if (messages == null || messages.isEmpty()) {
       return;
