@@ -44,21 +44,31 @@ public class SettingsCommand implements Command {
 
     if (isGroupChat) {
       return String.format(
-          "⚙️ *Настройки беседы*\n\n"
-              + "👥 *Группа:* %s\n"
-              + "🔔 *Уведомления:* %s\n\n"
-              + "Выберите, что хотите изменить:",
-          groupStr, notifyStr);
+          person.isMinimalistMode()
+              ? "*Настройки беседы*%n%nГруппа: %s%nУведомления: %s%nМинимализм: %s%n%nВыберите, что хотите изменить:"
+              : "⚙️ *Настройки беседы*%n%n"
+                  + "👥 *Группа:* %s%n"
+                  + "🔔 *Уведомления:* %s%n"
+                  + "✨ *Минимализм:* %s%n%n"
+                  + "Выберите, что хотите изменить:",
+          groupStr,
+          notifyStr,
+          minStr);
     }
 
     return String.format(
-        "⚙️ *Настройки*\n\n"
-            + "👥 *Группа:* %s\n"
-            + "🔔 *Уведомления:* %s\n"
-            + "📱 *Вид меню:* %s\n"
-            + "✨ *Минимализм:* %s\n\n"
-            + "Выберите, что хотите изменить:",
-        groupStr, notifyStr, menuStr, minStr);
+        person.isMinimalistMode()
+            ? "*Настройки*%n%nГруппа: %s%nУведомления: %s%nВид меню: %s%nМинимализм: %s%n%nВыберите, что хотите изменить:"
+            : "⚙️ *Настройки*%n%n"
+                + "👥 *Группа:* %s%n"
+                + "🔔 *Уведомления:* %s%n"
+                + "📱 *Вид меню:* %s%n"
+                + "✨ *Минимализм:* %s%n%n"
+                + "Выберите, что хотите изменить:",
+        groupStr,
+        notifyStr,
+        menuStr,
+        minStr);
   }
 
   public static InlineKeyboardMarkup buildInlineKeyboard(Person person) {
@@ -67,23 +77,28 @@ public class SettingsCommand implements Command {
 
     InlineKeyboardButton notifyBtn = new InlineKeyboardButton();
     notifyBtn.setText(
-        person.isNotificationsEnabled() ? "🔕 Выключить уведомления" : "🔔 Включить уведомления");
+        person.isNotificationsEnabled()
+            ? (person.isMinimalistMode() ? "Выключить уведомления" : "🔕 Выключить уведомления")
+            : (person.isMinimalistMode() ? "Включить уведомления" : "🔔 Включить уведомления"));
     notifyBtn.setCallbackData(TOGGLE_NOTIFY_CALLBACK);
     rows.add(List.of(notifyBtn));
 
     if (!isGroupChat) {
       InlineKeyboardButton menuBtn = new InlineKeyboardButton();
       menuBtn.setText(
-          person.isCompactMenu() ? "🗂 Вернуть полное меню" : "📱 Включить компактное меню");
+          person.isCompactMenu()
+              ? (person.isMinimalistMode() ? "Вернуть полное меню" : "🗂 Вернуть полное меню")
+              : (person.isMinimalistMode()
+                  ? "Включить компактное меню"
+                  : "📱 Включить компактное меню"));
       menuBtn.setCallbackData(TOGGLE_MENU_CALLBACK);
       rows.add(List.of(menuBtn));
-
-      InlineKeyboardButton minBtn = new InlineKeyboardButton();
-      minBtn.setText(
-          person.isMinimalistMode() ? "✨ Выключить минимализм" : "✨ Включить минимализм");
-      minBtn.setCallbackData(TOGGLE_MINIMALIST_CALLBACK);
-      rows.add(List.of(minBtn));
     }
+
+    InlineKeyboardButton minBtn = new InlineKeyboardButton();
+    minBtn.setText(person.isMinimalistMode() ? "Выключить минимализм" : "✨ Включить минимализм");
+    minBtn.setCallbackData(TOGGLE_MINIMALIST_CALLBACK);
+    rows.add(List.of(minBtn));
 
     InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
     markup.setKeyboard(rows);

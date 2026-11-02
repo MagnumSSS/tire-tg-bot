@@ -46,14 +46,18 @@ public class CommandsHandler implements Handler {
       SendMessage msg =
           new SendMessage(
               person.getChatId(),
-              "👋 *Бот расписания для группового чата*\n\n"
-                  + "📌 *Команды чата:*\n"
-                  + "• `/today` — расписание на сегодня\n"
-                  + "• `/tomorrow` — расписание на завтра\n"
-                  + "• `/bells` — расписание звонков\n"
-                  + "• `/settings` — настройки авто-рассылки и закрепа (для админов)\n"
-                  + "• `/group 234` — установить номер группы для беседы (для админов)\n\n"
-                  + "_Автоматическая отправка и закреп расписания: в 08:00 (на сегодня) и в 18:00 (на завтра), если включено в /settings._");
+              (person.isMinimalistMode()
+                      ? "*Бот расписания для группового чата*\n\n"
+                      : "👋 *Бот расписания для группового чата*\n\n")
+                  + (person.isMinimalistMode()
+                      ? "*Команды чата:*\n"
+                      : "📌 *Команды чата:*\n")
+                          + "• `/today` — расписание на сегодня\n"
+                          + "• `/tomorrow` — расписание на завтра\n"
+                          + "• `/bells` — расписание звонков\n"
+                          + "• `/settings` — настройки авто-рассылки и закрепа (для админов)\n"
+                          + "• `/group 234` — установить номер группы для беседы (для админов)\n\n"
+                          + "_Автоматическая отправка и закреп расписания: в 08:00 (на сегодня) и в 18:00 (на завтра), если включено в /settings._");
       msg.enableMarkdown(true);
       msg.setReplyMarkup(new ReplyKeyboardRemove(true));
       return List.of(msg);
@@ -91,6 +95,21 @@ public class CommandsHandler implements Handler {
       return List.of(response);
     }
 
+    if (lower.equals("/minimalist") || lower.equals("/min")) {
+      if (!TelegramBot.getInstance().isGroupAdmin(person.getChatId(), fromUserId)) {
+        return List.of(
+            new ErrorMessage(
+                person.getChatId(), "⛔ Менять настройки беседы могут только администраторы чата!"));
+      }
+      person.setMinimalistMode(!person.isMinimalistMode());
+      personService.save(person);
+      String status = person.isMinimalistMode() ? "включен" : "выключен";
+      SendMessage msg =
+          new SendMessage(person.getChatId(), "✨ Режим минимализма *" + status + "*.");
+      msg.enableMarkdown(true);
+      return List.of(msg);
+    }
+
     if (lower.equals("/settings")) {
       return settingsCommand.handle(update, person);
     }
@@ -100,7 +119,11 @@ public class CommandsHandler implements Handler {
     }
 
     if (lower.equals("/bells")) {
-      StringBuilder bells = new StringBuilder("🔔 *Основное расписание звонков (ВТ–ПТ):*\n");
+      StringBuilder bells =
+          new StringBuilder(
+              person.isMinimalistMode()
+                  ? "*Основное расписание звонков (ВТ–ПТ):*\n"
+                  : "🔔 *Основное расписание звонков (ВТ–ПТ):*\n");
       for (int i = 1; i <= 6; i++) {
         bells
             .append("*")
@@ -109,7 +132,7 @@ public class CommandsHandler implements Handler {
             .append(bellScheduleService.getBellTime(Day.TUESDAY, i))
             .append("`\n");
       }
-      bells.append("\n🔔 *Понедельник:*\n");
+      bells.append(person.isMinimalistMode() ? "\n*Понедельник:*\n" : "\n🔔 *Понедельник:*\n");
       for (int i = 1; i <= 6; i++) {
         bells
             .append("*")
@@ -118,7 +141,7 @@ public class CommandsHandler implements Handler {
             .append(bellScheduleService.getBellTime(Day.MONDAY, i))
             .append("`\n");
       }
-      bells.append("\n🔔 *Суббота:*\n");
+      bells.append(person.isMinimalistMode() ? "\n*Суббота:*\n" : "\n🔔 *Суббота:*\n");
       for (int i = 1; i <= 6; i++) {
         bells
             .append("*")
@@ -183,6 +206,16 @@ public class CommandsHandler implements Handler {
         }
         return res;
       }
+    }
+
+    if (rawText.equalsIgnoreCase("/minimalist") || rawText.equalsIgnoreCase("/min")) {
+      person.setMinimalistMode(!person.isMinimalistMode());
+      personService.save(person);
+      String status = person.isMinimalistMode() ? "включен" : "выключен";
+      CustomMessage msg =
+          new CustomMessage(person.getChatId(), "✨ Режим минимализма *" + status + "*.");
+      MainKeyboard.addKeyboard(msg, person.isCompactMenu(), person.isMinimalistMode());
+      return List.of(msg);
     }
 
     if (!rawText.startsWith("/")) {

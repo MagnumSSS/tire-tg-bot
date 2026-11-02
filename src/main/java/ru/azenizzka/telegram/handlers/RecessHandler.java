@@ -28,7 +28,8 @@ public class RecessHandler implements Handler {
     this.bellScheduleService = bellScheduleService;
   }
 
-  public String formatDaySchedule(int groupNum, Day day, String label) {
+  public String formatDaySchedule(Person person, Day day, String label) {
+    int groupNum = person.getGroupNum();
     List<List<String>> lessons = lessonScheduleService.getLessons(groupNum, day);
     if (lessons.isEmpty()) {
       return "Расписание *"
@@ -92,7 +93,7 @@ public class RecessHandler implements Handler {
         return List.of(noLessons);
       }
 
-      String formatted = formatDaySchedule(person.getGroupNum(), day, textMessage);
+      String formatted = formatDaySchedule(person, day, textMessage);
       SendMessage scheduleMessage = new SendMessage(person.getChatId(), formatted);
       scheduleMessage.enableMarkdown(true);
       scheduleMessage.setReplyMarkup(

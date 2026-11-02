@@ -114,25 +114,23 @@ public class CallbackQueryHandler {
   }
 
   private void handleToggleMinimalist(CallbackQuery query, Person person) {
-    if (person.getChatId().startsWith("-")) {
-      return;
-    }
-
     person.setMinimalistMode(!person.isMinimalistMode());
     personRepository.save(person);
     updateSettingsMessage(query, person);
     answer(query.getId(), "Режим минимализма обновлен!", false);
 
-    CustomMessage kbUpdate =
-        new CustomMessage(
-            person.getChatId(),
-            person.isMinimalistMode()
-                ? "✨ Минималистичный режим включен."
-                : "✨ Обычный режим включен.");
-    MainKeyboard.addKeyboard(kbUpdate, person.isCompactMenu(), person.isMinimalistMode());
-    try {
-      telegramBot.execute(kbUpdate);
-    } catch (TelegramApiException ignored) {
+    if (!person.getChatId().startsWith("-")) {
+      CustomMessage kbUpdate =
+          new CustomMessage(
+              person.getChatId(),
+              person.isMinimalistMode()
+                  ? "✨ Минималистичный режим включен."
+                  : "✨ Обычный режим включен.");
+      MainKeyboard.addKeyboard(kbUpdate, person.isCompactMenu(), person.isMinimalistMode());
+      try {
+        telegramBot.execute(kbUpdate);
+      } catch (TelegramApiException ignored) {
+      }
     }
   }
 
