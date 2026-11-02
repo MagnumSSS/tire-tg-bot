@@ -92,7 +92,8 @@ public class LessonScheduleService {
                 && p.getGroupNum() != 0
                 && p.isNotificationsEnabled()
                 && !p.isBanned()) {
-              String text = buildDetailedScheduleText(p.getGroupNum(), day, label, p.isMinimalistMode());
+              String text =
+                  buildDetailedScheduleText(p.getGroupNum(), day, label, p.isMinimalistMode());
               TelegramBot.getInstance().sendAndPinSchedule(p, text);
               try {
                 Thread.sleep(60L);
