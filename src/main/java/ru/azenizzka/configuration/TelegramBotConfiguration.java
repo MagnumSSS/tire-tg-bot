@@ -9,6 +9,7 @@ import org.telegram.telegrambots.meta.TelegramBotsApi;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.updatesreceivers.DefaultBotSession;
 import ru.azenizzka.telegram.TelegramBot;
+
 @Configuration
 @Getter
 @Setter
@@ -26,10 +27,13 @@ public class TelegramBotConfiguration {
   @Value("${bot.auditLogChatId:}")
   private String auditLogChatId;
 
+  @Value("${bot.test-mode:false}")
+  private boolean testMode;
+
   @Bean
-public TelegramBotsApi telegramBotsApi(TelegramBot telegramBot) throws TelegramApiException {
+  public TelegramBotsApi telegramBotsApi(TelegramBot telegramBot) throws TelegramApiException {
     TelegramBotsApi botsApi = new TelegramBotsApi(DefaultBotSession.class);
     botsApi.registerBot(telegramBot);
     return botsApi;
-}
+  }
 }

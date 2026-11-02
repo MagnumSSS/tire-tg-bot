@@ -1,18 +1,12 @@
 package ru.azenizzka.services;
 
-import org.joda.time.DateTime;
-import org.joda.time.DateTimeZone;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 
 public class DateService {
-  private static final DateTimeZone zone = DateTimeZone.forID("Asia/Novosibirsk");
-  private static DateTime time = new DateTime(zone);
+  private static final ZoneId ZONE = ZoneId.of("Asia/Novosibirsk");
 
   public static int getRawDay() {
-    updateTime();
-    return time.getDayOfWeek();
-  }
-
-  private static void updateTime() {
-    time = new DateTime(zone);
+    return ZonedDateTime.now(ZONE).getDayOfWeek().getValue();
   }
 }

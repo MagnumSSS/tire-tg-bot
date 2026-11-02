@@ -26,11 +26,8 @@ public class ReturnCommand implements Command {
   @Override
   public List<SendMessage> handle(Update update, Person person) {
     CustomMessage message = new CustomMessage(person.getChatId(), KeyboardType.MAIN);
-
     message.setText(MessagesConfig.HELP_MESSAGE);
-
     person.setInputType(InputType.COMMAND);
-
     return List.of(message);
   }
 }

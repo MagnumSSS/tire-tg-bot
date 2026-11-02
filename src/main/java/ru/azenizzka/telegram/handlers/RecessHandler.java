@@ -23,8 +23,7 @@ public class RecessHandler implements Handler {
   private final BellScheduleService bellScheduleService;
 
   public RecessHandler(
-      LessonScheduleService lessonScheduleService,
-      BellScheduleService bellScheduleService) {
+      LessonScheduleService lessonScheduleService, BellScheduleService bellScheduleService) {
     this.lessonScheduleService = lessonScheduleService;
     this.bellScheduleService = bellScheduleService;
   }
@@ -32,12 +31,16 @@ public class RecessHandler implements Handler {
   public String formatDaySchedule(int groupNum, Day day, String label) {
     List<List<String>> lessons = lessonScheduleService.getLessons(groupNum, day);
     if (lessons.isEmpty()) {
-      return "Расписание *" + groupNum + "* группы (" + label + "):\n\n" + MessagesConfig.NO_LESSONS_MESSAGE;
+      return "Расписание *"
+          + groupNum
+          + "* группы ("
+          + label
+          + "):\n\n"
+          + MessagesConfig.NO_LESSONS_MESSAGE;
     }
 
     StringBuilder result =
-        new StringBuilder(
-            "Расписание *" + groupNum + "* группы\n*" + label + "*\n\n");
+        new StringBuilder("Расписание *" + groupNum + "* группы\n*" + label + "*\n\n");
 
     for (List<String> list : lessons) {
       int lessonNum = 0;
@@ -73,9 +76,7 @@ public class RecessHandler implements Handler {
 
       if (!isGroupChat) {
         CustomMessage pleaseWaitMessage =
-            new CustomMessage(
-                person.getChatId(),
-                "⏳ Пожалуйста, подождите. Получаю расписание..");
+            new CustomMessage(person.getChatId(), "⏳ Пожалуйста, подождите. Получаю расписание..");
         MainKeyboard.addKeyboard(pleaseWaitMessage, person.isCompactMenu());
         TelegramBot.getInstance().sendMessage(List.of(pleaseWaitMessage));
       }
@@ -83,7 +84,8 @@ public class RecessHandler implements Handler {
       List<List<String>> lessons = lessonScheduleService.getLessons(person.getGroupNum(), day);
 
       if (lessons.isEmpty()) {
-        CustomMessage noLessons = new CustomMessage(person.getChatId(), MessagesConfig.NO_LESSONS_MESSAGE);
+        CustomMessage noLessons =
+            new CustomMessage(person.getChatId(), MessagesConfig.NO_LESSONS_MESSAGE);
         if (!isGroupChat) {
           MainKeyboard.addKeyboard(noLessons, person.isCompactMenu());
         }
@@ -93,7 +95,8 @@ public class RecessHandler implements Handler {
       String formatted = formatDaySchedule(person.getGroupNum(), day, textMessage);
       SendMessage scheduleMessage = new SendMessage(person.getChatId(), formatted);
       scheduleMessage.enableMarkdown(true);
-      scheduleMessage.setReplyMarkup(ReportKeyboard.getKeyboard(textMessage));
+      scheduleMessage.setReplyMarkup(
+          ReportKeyboard.getKeyboard(textMessage, person.isMinimalistMode()));
 
       return List.of(scheduleMessage);
     } catch (Exception e) {

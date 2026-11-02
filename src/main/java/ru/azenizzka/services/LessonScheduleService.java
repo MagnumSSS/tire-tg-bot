@@ -45,7 +45,8 @@ public class LessonScheduleService {
   private static final Pattern GROUP_PATTERN = Pattern.compile("(?<!\\d)\\d{2,3}(?!\\d)");
 
   private final Map<String, Map<Day, String>> scheduleCache = new ConcurrentHashMap<>();
-  private final Map<String, Map<Day, List<List<String>>>> rawLessonsCache = new ConcurrentHashMap<>();
+  private final Map<String, Map<Day, List<List<String>>>> rawLessonsCache =
+      new ConcurrentHashMap<>();
 
   @PostConstruct
   public void init() {
@@ -82,34 +83,41 @@ public class LessonScheduleService {
   private void broadcastPinnedToGroups(Day day, String label) {
     if (TelegramBot.getInstance() == null) return;
 
-    CompletableFuture.runAsync(() -> {
-      for (Person p : personService.findAll()) {
-        if (p.getChatId() != null
-            && p.getChatId().startsWith("-")
-            && !p.getChatId().equals(botConfiguration.getAuditLogChatId())
-            && p.getGroupNum() != 0
-            && p.isNotificationsEnabled()
-            && !p.isBanned()) {
-          String text = buildDetailedScheduleText(p.getGroupNum(), day, label);
-          TelegramBot.getInstance().sendAndPinSchedule(p, text);
-          try {
-            Thread.sleep(60L);
-          } catch (InterruptedException ie) {
-            Thread.currentThread().interrupt();
-            break;
+    CompletableFuture.runAsync(
+        () -> {
+          for (Person p : personService.findAll()) {
+            if (p.getChatId() != null
+                && p.getChatId().startsWith("-")
+                && !p.getChatId().equals(botConfiguration.getAuditLogChatId())
+                && p.getGroupNum() != 0
+                && p.isNotificationsEnabled()
+                && !p.isBanned()) {
+              String text = buildDetailedScheduleText(p.getGroupNum(), day, label);
+              TelegramBot.getInstance().sendAndPinSchedule(p, text);
+              try {
+                Thread.sleep(60L);
+              } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+                break;
+              }
+            }
           }
-        }
-      }
-    });
+        });
   }
 
   public String buildDetailedScheduleText(int groupNum, Day day, String label) {
     List<List<String>> lessons = getLessons(groupNum, day);
     if (lessons.isEmpty()) {
-      return "📌 *Расписание " + groupNum + " группы на " + label + "*\n\n" + MessagesConfig.NO_LESSONS_MESSAGE;
+      return "📌 *Расписание "
+          + groupNum
+          + " группы на "
+          + label
+          + "*\n\n"
+          + MessagesConfig.NO_LESSONS_MESSAGE;
     }
 
-    StringBuilder result = new StringBuilder("📌 *Расписание " + groupNum + " группы*\n*" + label + "*\n\n");
+    StringBuilder result =
+        new StringBuilder("📌 *Расписание " + groupNum + " группы*\n*" + label + "*\n\n");
     for (List<String> list : lessons) {
       int lessonNum = 0;
       try {
@@ -142,18 +150,20 @@ public class LessonScheduleService {
   private List<String> discoverSheetUrls() {
     Set<String> urls = new LinkedHashSet<>();
     try {
-      Document indexDoc = Jsoup.connect("https://ntmm.ru/student/raspisanie.php")
-          .sslSocketFactory(SSL_SOCKET_FACTORY)
-          .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
-          .timeout(15_000)
-          .get();
+      Document indexDoc =
+          Jsoup.connect("https://ntmm.ru/student/raspisanie.php")
+              .sslSocketFactory(SSL_SOCKET_FACTORY)
+              .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
+              .timeout(15_000)
+              .get();
 
       for (Element a : indexDoc.select("a[href]")) {
         String href = a.attr("href").trim();
         if (href.contains("/incoming/R-OO/") && (href.endsWith(".htm") || href.endsWith(".html"))) {
-          String fullUrl = href.startsWith("http")
-              ? href
-              : "https://ntmm.ru" + (href.startsWith("/") ? "" : "/") + href;
+          String fullUrl =
+              href.startsWith("http")
+                  ? href
+                  : "https://ntmm.ru" + (href.startsWith("/") ? "" : "/") + href;
           String sheetUrl = fullUrl.replaceAll("\\.html?$", ".files/sheet001.htm");
           urls.add(sheetUrl);
         }
@@ -185,11 +195,12 @@ public class LessonScheduleService {
 
     for (String url : sheetUrls) {
       try {
-        Document doc = Jsoup.connect(url)
-            .sslSocketFactory(SSL_SOCKET_FACTORY)
-            .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
-            .timeout(15_000)
-            .get();
+        Document doc =
+            Jsoup.connect(url)
+                .sslSocketFactory(SSL_SOCKET_FACTORY)
+                .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
+                .timeout(15_000)
+                .get();
 
         Element table = doc.selectFirst("table");
         if (table == null) {
@@ -226,7 +237,9 @@ public class LessonScheduleService {
     }
   }
 
-  private void checkAndNotifyChanges(Map<String, Map<Day, String>> newScheduleCache, Map<String, Map<Day, String>> oldScheduleCache) {
+  private void checkAndNotifyChanges(
+      Map<String, Map<Day, String>> newScheduleCache,
+      Map<String, Map<Day, String>> oldScheduleCache) {
     for (Map.Entry<String, Map<Day, String>> groupEntry : newScheduleCache.entrySet()) {
       String groupStr = groupEntry.getKey();
       Map<Day, String> newDays = groupEntry.getValue();
@@ -253,6 +266,13 @@ public class LessonScheduleService {
     }
   }
 
+  public void applyTestScheduleChange(int groupNum) {
+    notifyStudentsOnScheduleChange(
+        groupNum,
+        Day.MONDAY,
+        "⚠️ *ТЕСТОВОЕ ИЗМЕНЕНИЕ РАСПИСАНИЯ* ⚠️\n\n1. Тестовая пара 1\n2. Тестовая пара 2");
+  }
+
   public void notifyStudentsOnScheduleChange(int groupNum, Day day, String newScheduleText) {
     String dayRus = formatDayRus(day);
 
@@ -260,18 +280,26 @@ public class LessonScheduleService {
     for (Person p : personService.findAll()) {
       if (p.getGroupNum() == groupNum && p.isNotificationsEnabled() && !p.isBanned()) {
         if (p.getChatId() != null && p.getChatId().startsWith("-")) {
-          if (TelegramBot.getInstance() != null && !p.getChatId().equals(botConfiguration.getAuditLogChatId())) {
-            String pinText = "🔔 *Обновление расписания!*\n\n" + buildDetailedScheduleText(groupNum, day, dayRus);
+          if (TelegramBot.getInstance() != null
+              && !p.getChatId().equals(botConfiguration.getAuditLogChatId())) {
+            String pinText =
+                "🔔 *Обновление расписания!*\n\n"
+                    + buildDetailedScheduleText(groupNum, day, dayRus);
             TelegramBot.getInstance().sendAndPinSchedule(p, pinText);
           }
         } else {
-          SendMessage msg = new SendMessage(
-              p.getChatId(),
-              "🔔 *Обнаружено изменение в расписании!*\n"
-                  + "🎓 Группа: *" + groupNum + "*\n"
-                  + "📅 День: *" + dayRus + "*\n\n"
-                  + "*Новое расписание:*\n"
-                  + newScheduleText);
+          SendMessage msg =
+              new SendMessage(
+                  p.getChatId(),
+                  "🔔 *Обнаружено изменение в расписании!*\n"
+                      + "🎓 Группа: *"
+                      + groupNum
+                      + "*\n"
+                      + "📅 День: *"
+                      + dayRus
+                      + "*\n\n"
+                      + "*Новое расписание:*\n"
+                      + newScheduleText);
           msg.enableMarkdown(true);
           notifications.add(msg);
         }
@@ -357,8 +385,10 @@ public class LessonScheduleService {
     return grid;
   }
 
-  private void parseMatrix(String[][] grid, Map<String, Map<Day, String>> newScheduleCache,
-                           Map<String, Map<Day, List<List<String>>>> newRawCache) {
+  private void parseMatrix(
+      String[][] grid,
+      Map<String, Map<Day, String>> newScheduleCache,
+      Map<String, Map<Day, List<List<String>>>> newRawCache) {
     int groupRowIndex = -1;
     for (int r = 0; r < Math.min(10, grid.length); r++) {
       int groupMatches = 0;
@@ -415,7 +445,9 @@ public class LessonScheduleService {
       }
     }
 
-    Day[] defaultDays = {Day.MONDAY, Day.TUESDAY, Day.WEDNESDAY, Day.THURSDAY, Day.FRIDAY, Day.SATURDAY};
+    Day[] defaultDays = {
+      Day.MONDAY, Day.TUESDAY, Day.WEDNESDAY, Day.THURSDAY, Day.FRIDAY, Day.SATURDAY
+    };
     Map<Integer, Day> rowToDay = new HashMap<>();
 
     for (int i = 0; i < dayBlocks.size(); i++) {
@@ -451,18 +483,24 @@ public class LessonScheduleService {
         String groupNum = entry.getValue();
 
         String pairNum = (gCol < grid[r].length && grid[r][gCol] != null) ? grid[r][gCol] : "";
-        String discipline = (gCol + 1 < grid[r].length && grid[r][gCol + 1] != null) ? grid[r][gCol + 1] : "";
-        String room = (gCol + 2 < grid[r].length && grid[r][gCol + 2] != null) ? grid[r][gCol + 2] : "";
+        String discipline =
+            (gCol + 1 < grid[r].length && grid[r][gCol + 1] != null) ? grid[r][gCol + 1] : "";
+        String room =
+            (gCol + 2 < grid[r].length && grid[r][gCol + 2] != null) ? grid[r][gCol + 2] : "";
 
-        if (!discipline.isBlank() && !discipline.equalsIgnoreCase("н/п") && !discipline.equalsIgnoreCase("Дисциплина")) {
+        if (!discipline.isBlank()
+            && !discipline.equalsIgnoreCase("н/п")
+            && !discipline.equalsIgnoreCase("Дисциплина")) {
           newScheduleCache.computeIfAbsent(groupNum, k -> new HashMap<>());
           Map<Day, String> dayMap = newScheduleCache.get(groupNum);
 
           String currentSchedule = dayMap.getOrDefault(currentDay, "");
-          String lessonLine = String.format("%s. %s %s\n",
-              pairNum.isBlank() ? "•" : pairNum,
-              discipline,
-              room.isBlank() ? "" : "(" + room + ")");
+          String lessonLine =
+              String.format(
+                  "%s. %s %s\n",
+                  pairNum.isBlank() ? "•" : pairNum,
+                  discipline,
+                  room.isBlank() ? "" : "(" + room + ")");
           dayMap.put(currentDay, currentSchedule + lessonLine);
 
           newRawCache.computeIfAbsent(groupNum, k -> new HashMap<>());
@@ -487,13 +525,18 @@ public class LessonScheduleService {
   }
 
   private static SSLSocketFactory createInsecureSslSocketFactory() {
-    TrustManager[] trustAllCerts = new TrustManager[] {
-      new X509TrustManager() {
-        public X509Certificate[] getAcceptedIssuers() { return new X509Certificate[0]; }
-        public void checkClientTrusted(X509Certificate[] certs, String authType) {}
-        public void checkServerTrusted(X509Certificate[] certs, String authType) {}
-      }
-    };
+    TrustManager[] trustAllCerts =
+        new TrustManager[] {
+          new X509TrustManager() {
+            public X509Certificate[] getAcceptedIssuers() {
+              return new X509Certificate[0];
+            }
+
+            public void checkClientTrusted(X509Certificate[] certs, String authType) {}
+
+            public void checkServerTrusted(X509Certificate[] certs, String authType) {}
+          }
+        };
 
     try {
       SSLContext sslContext = SSLContext.getInstance("TLS");

@@ -7,9 +7,8 @@ import ru.azenizzka.utils.Day;
 
 @Service
 public class BellScheduleService {
-  private static byte[][][] bellRecess;
 
-  private static final byte[][][] bellMain = {
+  private static final byte[][][] BELL_MAIN = {
     {{8, 30}, {9, 15}, {9, 20}, {10, 5}},
     {{10, 20}, {11, 5}, {11, 10}, {11, 55}},
     {{12, 25}, {13, 10}, {13, 15}, {14, 0}},
@@ -18,7 +17,7 @@ public class BellScheduleService {
     {{18, 0}, {18, 45}, {18, 50}, {19, 35}}
   };
 
-  private static final byte[][][] bellSaturday = {
+  private static final byte[][][] BELL_SATURDAY = {
     {{8, 30}, {9, 15}, {9, 20}, {10, 5}},
     {{10, 20}, {11, 5}, {11, 10}, {11, 55}},
     {{12, 5}, {12, 50}, {12, 55}, {13, 40}},
@@ -27,7 +26,7 @@ public class BellScheduleService {
     {{17, 20}, {18, 5}, {18, 10}, {18, 55}}
   };
 
-  private static final byte[][][] bellMonday = {
+  private static final byte[][][] BELL_MONDAY = {
     {{9, 20}, {10, 5}, {10, 10}, {10, 55}},
     {{11, 15}, {12, 0}, {12, 5}, {12, 50}},
     {{13, 20}, {14, 5}, {14, 10}, {14, 55}},
@@ -36,64 +35,67 @@ public class BellScheduleService {
     {{18, 45}, {19, 30}, {19, 35}, {20, 20}}
   };
 
-  private static final String timeSeparator = ":";
-  private static final String space = " ";
-  private static final String partsSeparator = "    ";
-  private static final String endOfLine = "\n";
+  private static final String TIME_SEPARATOR = ":";
+  private static final String SPACE = " ";
+  private static final String PARTS_SEPARATOR = "    ";
+  private static final String END_OF_LINE = "\n";
 
-  private static final Map<Integer, String> MONDAY_BELLS = Map.of(
-      1, "09:20–10:05 | 10:10–10:55",
-      2, "11:15–12:00 | 12:05–12:50",
-      3, "13:20–14:05 | 14:10–14:55",
-      4, "15:15–16:00 | 16:05–16:50",
-      5, "17:00–17:45 | 17:50–18:35",
-      6, "18:45–19:30 | 19:35–20:20"
-  );
+  private static final Map<Integer, String> MONDAY_BELLS =
+      Map.of(
+          1, "09:20–10:05 | 10:10–10:55",
+          2, "11:15–12:00 | 12:05–12:50",
+          3, "13:20–14:05 | 14:10–14:55",
+          4, "15:15–16:00 | 16:05–16:50",
+          5, "17:00–17:45 | 17:50–18:35",
+          6, "18:45–19:30 | 19:35–20:20");
 
-  private static final Map<Integer, String> SATURDAY_BELLS = Map.of(
-      1, "08:30–09:15 | 09:20–10:05",
-      2, "10:20–11:05 | 11:10–11:55",
-      3, "12:05–12:50 | 12:55–13:40",
-      4, "13:50–14:35 | 14:40–15:25",
-      5, "15:35–16:20 | 16:25–17:10",
-      6, "17:20–18:05 | 18:10–18:55"
-  );
+  private static final Map<Integer, String> SATURDAY_BELLS =
+      Map.of(
+          1, "08:30–09:15 | 09:20–10:05",
+          2, "10:20–11:05 | 11:10–11:55",
+          3, "12:05–12:50 | 12:55–13:40",
+          4, "13:50–14:35 | 14:40–15:25",
+          5, "15:35–16:20 | 16:25–17:10",
+          6, "17:20–18:05 | 18:10–18:55");
 
-  private static final Map<Integer, String> DEFAULT_BELLS = Map.of(
-      1, "08:30–09:15 | 09:20–10:05",
-      2, "10:20–11:05 | 11:10–11:55",
-      3, "12:25–13:10 | 13:15–14:00",
-      4, "14:30–15:15 | 15:20–16:05",
-      5, "16:15–17:00 | 17:05–17:50",
-      6, "18:00–18:45 | 18:50–19:35"
-  );
+  private static final Map<Integer, String> DEFAULT_BELLS =
+      Map.of(
+          1, "08:30–09:15 | 09:20–10:05",
+          2, "10:20–11:05 | 11:10–11:55",
+          3, "12:25–13:10 | 13:15–14:00",
+          4, "14:30–15:15 | 15:20–16:05",
+          5, "16:15–17:00 | 17:05–17:50",
+          6, "18:00–18:45 | 18:50–19:35");
 
   public String getBellTime(Day day, int lessonNum) {
-    Map<Integer, String> targetMap = switch (day) {
-      case MONDAY -> MONDAY_BELLS;
-      case SATURDAY -> SATURDAY_BELLS;
-      default -> DEFAULT_BELLS;
-    };
+    Map<Integer, String> targetMap =
+        switch (day) {
+          case MONDAY -> MONDAY_BELLS;
+          case SATURDAY -> SATURDAY_BELLS;
+          default -> DEFAULT_BELLS;
+        };
 
     return targetMap.getOrDefault(lessonNum, "");
   }
 
   public static String getStringWithSchedule(BellType bellType) {
     StringBuilder out = new StringBuilder();
+    byte[][][] bellRecess;
 
     switch (bellType) {
       case MAIN -> {
         out.append("*Основное* расписание звонков\n\n");
-        bellRecess = bellMain;
+        bellRecess = BELL_MAIN;
       }
       case MONDAY -> {
         out.append("Расписание звонков на *Понедельник*\n\n");
-        bellRecess = bellMonday;
+        bellRecess = BELL_MONDAY;
       }
       case SATURDAY -> {
         out.append("Расписание звонков на *Субботу*\n\n");
-        bellRecess = bellSaturday;
+        bellRecess = BELL_SATURDAY;
       }
+      default -> bellRecess = BELL_MAIN;
     }
 
     for (int lesson = 0; lesson < 6; lesson++) {
@@ -109,17 +111,17 @@ public class BellScheduleService {
           to = "0" + to;
         }
 
-        out.append(from).append(timeSeparator).append(to);
+        out.append(from).append(TIME_SEPARATOR).append(to);
 
         if (time == 0 || time == 2) {
-          out.append(space);
+          out.append(SPACE);
         } else if (time == 1) {
-          out.append(partsSeparator);
+          out.append(PARTS_SEPARATOR);
         } else {
-          out.append(endOfLine);
+          out.append(END_OF_LINE);
         }
       }
-      out.append(endOfLine);
+      out.append(END_OF_LINE);
     }
 
     return out.toString();

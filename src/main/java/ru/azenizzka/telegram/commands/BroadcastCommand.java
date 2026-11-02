@@ -35,7 +35,8 @@ public class BroadcastCommand implements Command {
     String rawText = update.getMessage().getText().trim();
 
     if (rawText.length() <= getCommand().length()) {
-      return List.of(new ErrorMessage(person.getChatId(), MessagesConfig.NULL_BROADCAST_MESSAGE_EXCEPTION));
+      return List.of(
+          new ErrorMessage(person.getChatId(), MessagesConfig.NULL_BROADCAST_MESSAGE_EXCEPTION));
     }
 
     String broadcastText = rawText.substring(getCommand().length()).trim();
@@ -51,9 +52,12 @@ public class BroadcastCommand implements Command {
 
     TelegramBot.getInstance().broadcastAsync(list, person.getChatId());
 
-    SendMessage startedMsg = new SendMessage(
-        person.getChatId(),
-        "🚀 Запущена фоновая рассылка на *" + list.size() + "* чатов (~18 сообщ/сек).\nПо окончании пришлю отчёт и очищу БД от заблокировавших бота.");
+    SendMessage startedMsg =
+        new SendMessage(
+            person.getChatId(),
+            "🚀 Запущена фоновая рассылка на *"
+                + list.size()
+                + "* чатов (~18 сообщ/сек).\nПо окончании пришлю отчёт и очищу БД от заблокировавших бота.");
     startedMsg.enableMarkdown(true);
     return List.of(startedMsg);
   }

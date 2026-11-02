@@ -44,7 +44,7 @@ public class DayUtil {
     }
   }
 
-public static int convertStrToInt(String str) throws BellTypeConvertException {
+  public static int convertStrToInt(String str) throws BellTypeConvertException {
     if (str.startsWith("сегодня")) {
       int raw = DateService.getRawDay();
       return (raw < 1 || raw > 6) ? 0 : raw;
@@ -61,6 +61,7 @@ public static int convertStrToInt(String str) throws BellTypeConvertException {
       throw new BellTypeConvertException(MessagesConfig.DAY_INPUT_EXCEPTION);
     }
   }
+
   public static String convertDayToStr(Day day) throws BellTypeConvertException {
     if (dayStrMap.containsKey(day)) {
       return dayStrMap.get(day);

@@ -36,8 +36,7 @@ public class CallbackQueryHandler {
           + "За повторные нарушения возможна вечная блокировка в боте.";
 
   public CallbackQueryHandler(
-      TelegramBotConfiguration configuration,
-      @Lazy TelegramBot telegramBot) {
+      TelegramBotConfiguration configuration, @Lazy TelegramBot telegramBot) {
     this.configuration = configuration;
     this.telegramBot = telegramBot;
   }
@@ -48,9 +47,15 @@ public class CallbackQueryHandler {
 
     boolean isGroup = person.getChatId().startsWith("-");
 
-    if (data.equals(SettingsCommand.TOGGLE_NOTIFY_CALLBACK) || data.equals(SettingsCommand.TOGGLE_MENU_CALLBACK)) {
-      if (isGroup && !telegramBot.isGroupAdmin(person.getChatId(), callbackQuery.getFrom().getId())) {
-        answer(callbackQuery.getId(), "⛔ Менять настройки чата могут только администраторы группы!", true);
+    if (data.equals(SettingsCommand.TOGGLE_NOTIFY_CALLBACK)
+        || data.equals(SettingsCommand.TOGGLE_MENU_CALLBACK)
+        || data.equals(SettingsCommand.TOGGLE_MINIMALIST_CALLBACK)) {
+      if (isGroup
+          && !telegramBot.isGroupAdmin(person.getChatId(), callbackQuery.getFrom().getId())) {
+        answer(
+            callbackQuery.getId(),
+            "⛔ Менять настройки чата могут только администраторы группы!",
+            true);
         return;
       }
     }
@@ -59,12 +64,14 @@ public class CallbackQueryHandler {
       handleToggleNotify(callbackQuery, person);
     } else if (data.equals(SettingsCommand.TOGGLE_MENU_CALLBACK)) {
       handleToggleMenu(callbackQuery, person);
+    } else if (data.equals(SettingsCommand.TOGGLE_MINIMALIST_CALLBACK)) {
+      handleToggleMinimalist(callbackQuery, person);
     } else if (data.startsWith(ReportKeyboard.REPORT_INIT_PREFIX)) {
-      handleInitialClick(callbackQuery);
+      handleInitialClick(callbackQuery, person);
     } else if (data.startsWith(ReportKeyboard.REPORT_CONFIRM_PREFIX)) {
       handleConfirmation(callbackQuery, person);
     } else if (data.startsWith(ReportKeyboard.REPORT_CANCEL)) {
-      handleCancel(callbackQuery);
+      handleCancel(callbackQuery, person);
     }
   }
 
@@ -72,7 +79,10 @@ public class CallbackQueryHandler {
     person.setNotificationsEnabled(!person.isNotificationsEnabled());
 
     updateSettingsMessage(query, person);
-    answer(query.getId(), person.isNotificationsEnabled() ? "🔔 Уведомления включены" : "🔕 Уведомления выключены", false);
+    answer(
+        query.getId(),
+        person.isNotificationsEnabled() ? "🔔 Уведомления включены" : "🔕 Уведомления выключены",
+        false);
   }
 
   private void handleToggleMenu(CallbackQuery query, Person person) {
@@ -84,10 +94,35 @@ public class CallbackQueryHandler {
     updateSettingsMessage(query, person);
     answer(query.getId(), "Вид главного меню обновлен!", false);
 
-    CustomMessage kbUpdate = new CustomMessage(person.getChatId(), person.isCompactMenu()
-        ? "📱 Включено *компактное меню*."
-        : "📅 Включено *полное меню* со всеми днями недели.");
-    MainKeyboard.addKeyboard(kbUpdate, person.isCompactMenu());
+    CustomMessage kbUpdate =
+        new CustomMessage(
+            person.getChatId(),
+            person.isCompactMenu()
+                ? "📱 Включено *компактное меню*."
+                : "📅 Включено *полное меню* со всеми днями недели.");
+    MainKeyboard.addKeyboard(kbUpdate, person.isCompactMenu(), person.isMinimalistMode());
+    try {
+      telegramBot.execute(kbUpdate);
+    } catch (TelegramApiException ignored) {
+    }
+  }
+
+  private void handleToggleMinimalist(CallbackQuery query, Person person) {
+    if (person.getChatId().startsWith("-")) {
+      return;
+    }
+
+    person.setMinimalistMode(!person.isMinimalistMode());
+    updateSettingsMessage(query, person);
+    answer(query.getId(), "Режим минимализма обновлен!", false);
+
+    CustomMessage kbUpdate =
+        new CustomMessage(
+            person.getChatId(),
+            person.isMinimalistMode()
+                ? "✨ Минималистичный режим включен."
+                : "✨ Обычный режим включен.");
+    MainKeyboard.addKeyboard(kbUpdate, person.isCompactMenu(), person.isMinimalistMode());
     try {
       telegramBot.execute(kbUpdate);
     } catch (TelegramApiException ignored) {
@@ -107,19 +142,23 @@ public class CallbackQueryHandler {
     }
   }
 
-  private void handleInitialClick(CallbackQuery callbackQuery) {
+  private void handleInitialClick(CallbackQuery callbackQuery, Person person) {
     long userId = callbackQuery.getFrom().getId();
     long now = System.currentTimeMillis();
 
     if (cooldownMap.containsKey(userId) && (now - cooldownMap.get(userId) < COOLDOWN_MS)) {
       long waitSec = (COOLDOWN_MS - (now - cooldownMap.get(userId))) / 1000;
-      answer(callbackQuery.getId(), "⚠️ Вы уже отправляли жалобу. Подождите " + waitSec + " сек.", true);
+      answer(
+          callbackQuery.getId(),
+          "⚠️ Вы уже отправляли жалобу. Подождите " + waitSec + " сек.",
+          true);
       return;
     }
 
     String day = callbackQuery.getData().substring(ReportKeyboard.REPORT_INIT_PREFIX.length());
     answer(callbackQuery.getId(), WARNING_TEXT, true);
-    editMarkup(callbackQuery, ReportKeyboard.getConfirmationKeyboard(day));
+    editMarkup(
+        callbackQuery, ReportKeyboard.getConfirmationKeyboard(day, person.isMinimalistMode()));
   }
 
   private void handleConfirmation(CallbackQuery callbackQuery, Person person) {
@@ -128,22 +167,30 @@ public class CallbackQueryHandler {
 
     if (cooldownMap.containsKey(userId) && (now - cooldownMap.get(userId) < COOLDOWN_MS)) {
       long waitSec = (COOLDOWN_MS - (now - cooldownMap.get(userId))) / 1000;
-      answer(callbackQuery.getId(), "⚠️ Вы уже отправляли жалобу. Подождите " + waitSec + " сек.", true);
+      answer(
+          callbackQuery.getId(),
+          "⚠️ Вы уже отправляли жалобу. Подождите " + waitSec + " сек.",
+          true);
       return;
     }
 
     cooldownMap.put(userId, now);
 
     String day = callbackQuery.getData().substring(ReportKeyboard.REPORT_CONFIRM_PREFIX.length());
-    String group = (person.getGroupNum() != 0) ? String.valueOf(person.getGroupNum()) : "Не указана";
-    String username = callbackQuery.getFrom().getUserName() != null ? "@" + callbackQuery.getFrom().getUserName() : "нет username";
+    String group =
+        (person.getGroupNum() != 0) ? String.valueOf(person.getGroupNum()) : "Не указана";
+    String username =
+        callbackQuery.getFrom().getUserName() != null
+            ? "@" + callbackQuery.getFrom().getUserName()
+            : "нет username";
 
-    String alertMessage = String.format(
-        "🚨 *Подтвержденная жалоба на расписание!*\n"
-            + "👤 Пользователь: %s (`%d`)\n"
-            + "👥 Группа: `%s` \n"
-            + "📅 День: `%s`",
-        username, userId, group, day);
+    String alertMessage =
+        String.format(
+            "🚨 *Подтвержденная жалоба на расписание!*\n"
+                + "👤 Пользователь: %s (`%d`)\n"
+                + "👥 Группа: `%s` \n"
+                + "📅 День: `%s`",
+            username, userId, group, day);
 
     try {
       SendMessage sendAlert = new SendMessage(configuration.getAuditLogChatId(), alertMessage);
@@ -157,15 +204,17 @@ public class CallbackQueryHandler {
     editMarkup(callbackQuery, null);
   }
 
-  private void handleCancel(CallbackQuery callbackQuery) {
+  private void handleCancel(CallbackQuery callbackQuery, Person person) {
     String[] parts = callbackQuery.getData().split(":", 2);
     String day = parts.length > 1 ? parts[1] : "0";
 
     answer(callbackQuery.getId(), "Отправка отменена", false);
-    editMarkup(callbackQuery, ReportKeyboard.getKeyboard(day));
+    editMarkup(callbackQuery, ReportKeyboard.getKeyboard(day, person.isMinimalistMode()));
   }
 
-  private void editMarkup(CallbackQuery query, org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup markup) {
+  private void editMarkup(
+      CallbackQuery query,
+      org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup markup) {
     try {
       EditMessageReplyMarkup edit = new EditMessageReplyMarkup();
       edit.setChatId(query.getMessage().getChatId().toString());

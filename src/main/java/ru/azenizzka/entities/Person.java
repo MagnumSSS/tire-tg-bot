@@ -1,6 +1,10 @@
 package ru.azenizzka.entities;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -22,7 +26,12 @@ public class Person {
   private InputType inputType;
 
   private boolean isBanned = false;
+  private Long banUntil;
+  private String banReason;
   private boolean isReportMuted = false;
+
+  @Column(columnDefinition = "boolean default false")
+  private boolean isMinimalistMode = false;
 
   @Column(columnDefinition = "boolean default false")
   private boolean notificationsEnabled = false;

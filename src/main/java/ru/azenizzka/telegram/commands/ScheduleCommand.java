@@ -8,7 +8,6 @@ import ru.azenizzka.entities.Person;
 import ru.azenizzka.telegram.handlers.InputType;
 import ru.azenizzka.telegram.keyboards.KeyboardType;
 import ru.azenizzka.telegram.messages.CustomMessage;
-import ru.azenizzka.telegram.messages.ErrorMessage;
 import ru.azenizzka.utils.MessagesConfig;
 
 @Component
@@ -27,14 +26,14 @@ public class ScheduleCommand implements Command {
   public List<SendMessage> handle(Update update, Person person) {
     if (person.getGroupNum() == 0) {
       return List.of(
-          new ErrorMessage(person.getChatId(), MessagesConfig.GROUP_NOT_DEFINED_EXCEPTION));
+          new SendMessage(
+              person.getChatId(),
+              "⚠️ Вы еще не выбрали группу.\nПожалуйста, отправьте номер вашей группы в чат (только цифры, например: 232)."));
     }
 
     SendMessage message = new CustomMessage(person.getChatId(), KeyboardType.DAY);
-
     person.setInputType(InputType.DAY);
     message.setText(MessagesConfig.DAY_MESSAGE);
-
     return List.of(message);
   }
 }

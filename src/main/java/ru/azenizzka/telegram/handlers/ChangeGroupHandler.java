@@ -24,7 +24,6 @@ public class ChangeGroupHandler implements Handler {
     String textMessage = update.getMessage().getText().trim();
 
     try {
-      // 1. Вычищаем любые буквы, пробелы, дефисы и спецсимволы
       String digitsOnly = textMessage.replaceAll("[^0-9]", "");
 
       if (digitsOnly.isBlank()) {
@@ -37,7 +36,6 @@ public class ChangeGroupHandler implements Handler {
         throw new IllegalArgumentException();
       }
 
-      // Переводим в COMMAND только при успешном выборе
       person.setInputType(InputType.COMMAND);
       person.setGroupNum(group);
 
@@ -45,10 +43,10 @@ public class ChangeGroupHandler implements Handler {
       message.setText(MessagesConfig.SUCCESS_CHANGE_GROUP_MESSAGE);
       return List.of(message);
 
-    } catch (Exception e) {
-      // Оставляем пользователя в режиме GROUP, чтобы он мог ввести номер повторно
+    } catch (RuntimeException e) {
       person.setInputType(InputType.GROUP);
-      return List.of(new ErrorMessage(person.getChatId(), MessagesConfig.GROUP_NOT_FOUND_EXCEPTION));
+      return List.of(
+          new ErrorMessage(person.getChatId(), MessagesConfig.GROUP_NOT_FOUND_EXCEPTION));
     }
   }
 }

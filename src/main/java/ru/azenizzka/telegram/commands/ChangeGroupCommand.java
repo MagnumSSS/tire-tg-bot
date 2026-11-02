@@ -27,7 +27,6 @@ public class ChangeGroupCommand implements Command {
     CustomMessage message = new CustomMessage(person.getChatId(), KeyboardType.RETURN);
     message.setText(MessagesConfig.CHANGE_GROUP_MESSAGE);
     person.setInputType(InputType.GROUP);
-
     return List.of(message);
   }
 }

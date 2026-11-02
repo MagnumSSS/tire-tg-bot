@@ -18,7 +18,6 @@ public class SettingHandler implements Handler {
 
   public SettingHandler(ChangeGroupCommand changeGroupCommand, ReturnCommand returnCommand) {
     commands = new ArrayList<>();
-
     commands.add(returnCommand);
     commands.add(changeGroupCommand);
   }

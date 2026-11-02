@@ -54,9 +54,10 @@ public class MasterHandler implements Handler {
       return List.of();
     }
 
-    String text = update.hasMessage() && update.getMessage().hasText()
-        ? update.getMessage().getText().trim()
-        : "";
+    String text =
+        update.hasMessage() && update.getMessage().hasText()
+            ? update.getMessage().getText().trim()
+            : "";
 
     // 1. Аудит-чат
     if (person.getChatId().equals(configuration.getAuditLogChatId())) {
@@ -89,7 +90,8 @@ public class MasterHandler implements Handler {
       return messages;
     }
 
-    if (text.equalsIgnoreCase(MessagesConfig.START_COMMAND) || text.toLowerCase().startsWith("/start")) {
+    if (text.equalsIgnoreCase(MessagesConfig.START_COMMAND)
+        || text.toLowerCase().startsWith("/start")) {
       person.setInputType(InputType.COMMAND);
       return startCommand.handle(update, person);
     }
@@ -103,6 +105,7 @@ public class MasterHandler implements Handler {
 
     if ((!text.startsWith("/") && text.matches(".*\\d{2,3}.*"))
         || text.equals("ℹ️ О боте")
+        || text.equals("О боте")
         || text.equals(MessagesConfig.SETTINGS_COMMAND)
         || text.equals(MessagesConfig.RECESS_SCHEDULE_COMMAND)
         || text.equals(MessagesConfig.LESSON_SCHEDULE_COMMAND)) {

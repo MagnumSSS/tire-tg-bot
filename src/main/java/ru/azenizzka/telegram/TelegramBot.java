@@ -19,13 +19,12 @@ import ru.azenizzka.entities.Person;
 import ru.azenizzka.repositories.PersonRepository;
 import ru.azenizzka.telegram.handlers.InputType;
 import ru.azenizzka.telegram.handlers.MasterHandler;
-import ru.azenizzka.telegram.messages.NotifyMessage;
 
 @Component
 @Slf4j
 public class TelegramBot extends TelegramLongPollingBot {
 
-  private static final long RATE_LIMIT_DELAY_MS = 55L; // ~18 сообщений в секунду (безопасный лимит TG)
+  private static final long RATE_LIMIT_DELAY_MS = 55L;
 
   private final PersonRepository personRepository;
   private final TelegramBotConfiguration configuration;
@@ -62,9 +61,10 @@ public class TelegramBot extends TelegramLongPollingBot {
       username = update.getCallbackQuery().getFrom().getUserName();
     } else if (update.hasMessage() && update.getMessage().hasText()) {
       chatId = update.getMessage().getChatId().toString();
-      username = update.getMessage().getChat().isUserChat()
-          ? update.getMessage().getChat().getUserName()
-          : update.getMessage().getChat().getTitle();
+      username =
+          update.getMessage().getChat().isUserChat()
+              ? update.getMessage().getChat().getUserName()
+              : update.getMessage().getChat().getTitle();
     } else {
       return;
     }
@@ -91,7 +91,9 @@ public class TelegramBot extends TelegramLongPollingBot {
 
       List<SendMessage> responses = masterHandler.handle(update, person);
 
-      personRepository.save(person);
+      if (!person.isBanned()) {
+        personRepository.save(person);
+      }
 
       sendMessage(responses);
     } catch (Exception e) {
@@ -124,7 +126,10 @@ public class TelegramBot extends TelegramLongPollingBot {
       if (code == 403) {
         return true;
       }
-      if (code == 400 && (apiResp.contains("chat not found") || apiResp.contains("user is deactivated") || apiResp.contains("have no rights to send a message"))) {
+      if (code == 400
+          && (apiResp.contains("chat not found")
+              || apiResp.contains("user is deactivated")
+              || apiResp.contains("have no rights to send a message"))) {
         return true;
       }
     }
@@ -138,7 +143,9 @@ public class TelegramBot extends TelegramLongPollingBot {
   private void cleanupDeadPerson(String chatId, String reason) {
     try {
       Person dead = personRepository.findByChatId(chatId);
-      if (dead != null && !chatId.equals(configuration.getAuditLogChatId()) && !chatId.equals(configuration.getAdminChatId())) {
+      if (dead != null
+          && !chatId.equals(configuration.getAuditLogChatId())
+          && !chatId.equals(configuration.getAdminChatId())) {
         personRepository.delete(dead);
         log.info("Удален неактивный/заблокировавший чат {} из БД ({})", chatId, reason);
       }
@@ -154,7 +161,11 @@ public class TelegramBot extends TelegramLongPollingBot {
       try {
         execute(new DeleteMessage(chatId, groupPerson.getPinnedMessageId()));
       } catch (TelegramApiException e) {
-        log.debug("Не удалось удалить старое сообщение {} в чате {}: {}", groupPerson.getPinnedMessageId(), chatId, e.getMessage());
+        log.debug(
+            "Не удалось удалить старое сообщение {} в чате {}: {}",
+            groupPerson.getPinnedMessageId(),
+            chatId,
+            e.getMessage());
       }
     }
 
@@ -167,11 +178,12 @@ public class TelegramBot extends TelegramLongPollingBot {
       personRepository.save(groupPerson);
 
       try {
-        PinChatMessage pin = PinChatMessage.builder()
-            .chatId(chatId)
-            .messageId(sent.getMessageId())
-            .disableNotification(true)
-            .build();
+        PinChatMessage pin =
+            PinChatMessage.builder()
+                .chatId(chatId)
+                .messageId(sent.getMessageId())
+                .disableNotification(true)
+                .build();
         execute(pin);
       } catch (TelegramApiException e) {
         log.debug("Нет прав на закреп сообщения в чате {}: {}", chatId, e.getMessage());
@@ -190,49 +202,51 @@ public class TelegramBot extends TelegramLongPollingBot {
       return;
     }
 
-    CompletableFuture.runAsync(() -> {
-      int success = 0;
-      int removed = 0;
-      int failed = 0;
+    CompletableFuture.runAsync(
+        () -> {
+          int success = 0;
+          int removed = 0;
+          int failed = 0;
 
-      for (SendMessage message : messages) {
-        try {
-          execute(message);
-          success++;
-        } catch (TelegramApiException e) {
-          if (isDeadUserError(e)) {
-            cleanupDeadPerson(message.getChatId(), e.getMessage());
-            removed++;
-          } else {
-            failed++;
-            log.warn("Ошибка рассылки в chatId {}: {}", message.getChatId(), e.getMessage());
+          for (SendMessage message : messages) {
+            try {
+              execute(message);
+              success++;
+            } catch (TelegramApiException e) {
+              if (isDeadUserError(e)) {
+                cleanupDeadPerson(message.getChatId(), e.getMessage());
+                removed++;
+              } else {
+                failed++;
+                log.warn("Ошибка рассылки в chatId {}: {}", message.getChatId(), e.getMessage());
+              }
+            }
+
+            try {
+              Thread.sleep(RATE_LIMIT_DELAY_MS);
+            } catch (InterruptedException ie) {
+              Thread.currentThread().interrupt();
+              break;
+            }
           }
-        }
 
-        try {
-          Thread.sleep(RATE_LIMIT_DELAY_MS);
-        } catch (InterruptedException ie) {
-          Thread.currentThread().interrupt();
-          break;
-        }
-      }
-
-      if (reportChatId != null) {
-        try {
-          SendMessage report = new SendMessage(
-              reportChatId,
-              String.format(
-                  "📊 *Рассылка завершена!*\n"
-                      + "✅ Доставлено: *%d*\n"
-                      + "🗑 Удалено мёртвых/заблокировавших из БД: *%d*\n"
-                      + "⚠️ Прочих ошибок: *%d*",
-                  success, removed, failed));
-          report.enableMarkdown(true);
-          execute(report);
-        } catch (TelegramApiException ignored) {
-        }
-      }
-    });
+          if (reportChatId != null) {
+            try {
+              SendMessage report =
+                  new SendMessage(
+                      reportChatId,
+                      String.format(
+                          "📊 *Рассылка завершена!*\n"
+                              + "Доставлено: *%d*\n"
+                              + "Удалено неактивных из БД: *%d*\n"
+                              + "Прочих ошибок: *%d*",
+                          success, removed, failed));
+              report.enableMarkdown(true);
+              execute(report);
+            } catch (TelegramApiException ignored) {
+            }
+          }
+        });
   }
 
   public void sendMessage(List<SendMessage> messages) {
@@ -252,7 +266,10 @@ public class TelegramBot extends TelegramLongPollingBot {
         if (isDeadUserError(e)) {
           cleanupDeadPerson(message.getChatId(), e.getMessage());
         } else {
-          log.error("Не удалось отправить сообщение в chatId {}: {}", message.getChatId(), e.getMessage());
+          log.error(
+              "Не удалось отправить сообщение в chatId {}: {}",
+              message.getChatId(),
+              e.getMessage());
         }
       }
     }

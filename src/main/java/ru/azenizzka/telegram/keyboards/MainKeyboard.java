@@ -14,10 +14,18 @@ public class MainKeyboard {
   }
 
   public static void addKeyboard(SendMessage message, boolean compact) {
-    message.setReplyMarkup(getKeyboardMarkup(compact));
+    addKeyboard(message, compact, false);
   }
 
-  public static ReplyKeyboardMarkup getKeyboardMarkup(boolean compact) {
+  public static void addKeyboard(SendMessage message, boolean compact, boolean minimalist) {
+    // Блокируем отправку Reply-клавиатуры в беседы (ID групп начинаются с минуса)
+    if (message.getChatId() != null && message.getChatId().startsWith("-")) {
+      return;
+    }
+    message.setReplyMarkup(getKeyboardMarkup(compact, minimalist));
+  }
+
+  public static ReplyKeyboardMarkup getKeyboardMarkup(boolean compact, boolean minimalist) {
     ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
     List<KeyboardRow> keyboard = new ArrayList<>();
 
@@ -38,19 +46,22 @@ public class MainKeyboard {
     KeyboardRow rowToday = new KeyboardRow();
     rowToday.add("Сегодня");
     rowToday.add("Завтра");
-    if (compact) {
+
+    if (!compact) {
       rowToday.add(MessagesConfig.LESSON_SCHEDULE_COMMAND);
     }
+
     keyboard.add(rowToday);
 
     KeyboardRow rowBottom = new KeyboardRow();
     rowBottom.add(MessagesConfig.RECESS_SCHEDULE_COMMAND);
     rowBottom.add(MessagesConfig.SETTINGS_COMMAND);
-    rowBottom.add("ℹ️ О боте");
+    rowBottom.add(minimalist ? "О боте" : "ℹ️ О боте");
     keyboard.add(rowBottom);
 
     keyboardMarkup.setResizeKeyboard(true);
     keyboardMarkup.setKeyboard(keyboard);
+
     return keyboardMarkup;
   }
 }

@@ -13,6 +13,8 @@ services:
       BOT_NAME: ${BOT_NAME}
       BOT_TOKEN: ${BOT_TOKEN}
       BOT_AUDIT_CHATID: ${BOT_AUDIT_CHATID}
+      BOT_ADMIN_CHATID: ${BOT_ADMIN_CHATID:-}
+      BOT_TEST_MODE: ${BOT_TEST_MODE:-false}
     depends_on:
       - db
 
@@ -26,6 +28,6 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
-
 volumes:
   postgres_data:
+

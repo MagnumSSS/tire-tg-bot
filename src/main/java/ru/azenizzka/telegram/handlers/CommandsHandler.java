@@ -43,16 +43,17 @@ public class CommandsHandler implements Handler {
     Long fromUserId = update.getMessage().getFrom().getId();
 
     if (lower.equals("/start") || lower.equals("/help")) {
-      SendMessage msg = new SendMessage(
-          person.getChatId(),
-          "👋 *Бот расписания для группового чата*\n\n"
-              + "📌 *Команды чата:*\n"
-              + "• `/today` — расписание на сегодня\n"
-              + "• `/tomorrow` — расписание на завтра\n"
-              + "• `/bells` — расписание звонков\n"
-              + "• `/settings` — настройки авто-рассылки и закрепа (для админов)\n"
-              + "• `/group 234` — установить номер группы для беседы (для админов)\n\n"
-              + "_Автоматическая отправка и закреп расписания: в 08:00 (на сегодня) и в 18:00 (на завтра), если включено в /settings._");
+      SendMessage msg =
+          new SendMessage(
+              person.getChatId(),
+              "👋 *Бот расписания для группового чата*\n\n"
+                  + "📌 *Команды чата:*\n"
+                  + "• `/today` — расписание на сегодня\n"
+                  + "• `/tomorrow` — расписание на завтра\n"
+                  + "• `/bells` — расписание звонков\n"
+                  + "• `/settings` — настройки авто-рассылки и закрепа (для админов)\n"
+                  + "• `/group 234` — установить номер группы для беседы (для админов)\n\n"
+                  + "_Автоматическая отправка и закреп расписания: в 08:00 (на сегодня) и в 18:00 (на завтра), если включено в /settings._");
       msg.enableMarkdown(true);
       msg.setReplyMarkup(new ReplyKeyboardRemove(true));
       return List.of(msg);
@@ -60,24 +61,31 @@ public class CommandsHandler implements Handler {
 
     if (lower.startsWith("/group")) {
       if (!TelegramBot.getInstance().isGroupAdmin(person.getChatId(), fromUserId)) {
-        return List.of(new ErrorMessage(person.getChatId(), "⛔ Менять группу беседы могут только администраторы чата!"));
+        return List.of(
+            new ErrorMessage(
+                person.getChatId(), "⛔ Менять группу беседы могут только администраторы чата!"));
       }
       Matcher m = SOFT_GROUP_PATTERN.matcher(cleaned);
       if (!m.find()) {
-        return List.of(new ErrorMessage(person.getChatId(), "Укажите номер группы, например: `/group 234`"));
+        return List.of(
+            new ErrorMessage(person.getChatId(), "Укажите номер группы, например: `/group 234`"));
       }
       int groupNum = Integer.parseInt(m.group());
       if (!lessonScheduleService.isGroupExists(groupNum)) {
-        return List.of(new ErrorMessage(person.getChatId(), MessagesConfig.GROUP_NOT_FOUND_EXCEPTION));
+        return List.of(
+            new ErrorMessage(person.getChatId(), MessagesConfig.GROUP_NOT_FOUND_EXCEPTION));
       }
       person.setGroupNum(groupNum);
       personService.save(person);
 
-      SendMessage response = new SendMessage(
-          person.getChatId(),
-          "✅ Группа чата установлена на *" + groupNum + "*!\n"
-              + "🔔 Чтобы включить ежедневную отправку и закреп расписания в 08:00 и 18:00, откройте `/settings`.\n"
-              + "_(Не забудьте выдать боту права администратора на закрепление и удаление сообщений)_");
+      SendMessage response =
+          new SendMessage(
+              person.getChatId(),
+              "✅ Группа чата установлена на *"
+                  + groupNum
+                  + "*!\n"
+                  + "🔔 Чтобы включить ежедневную отправку и закреп расписания в 08:00 и 18:00, откройте `/settings`.\n"
+                  + "_(Не забудьте выдать боту права администратора на закрепление и удаление сообщений)_");
       response.enableMarkdown(true);
       response.setReplyMarkup(new ReplyKeyboardRemove(true));
       return List.of(response);
@@ -94,15 +102,30 @@ public class CommandsHandler implements Handler {
     if (lower.equals("/bells")) {
       StringBuilder bells = new StringBuilder("🔔 *Основное расписание звонков (ВТ–ПТ):*\n");
       for (int i = 1; i <= 6; i++) {
-        bells.append("*").append(i).append(" пара:* `").append(bellScheduleService.getBellTime(Day.TUESDAY, i)).append("`\n");
+        bells
+            .append("*")
+            .append(i)
+            .append(" пара:* `")
+            .append(bellScheduleService.getBellTime(Day.TUESDAY, i))
+            .append("`\n");
       }
       bells.append("\n🔔 *Понедельник:*\n");
       for (int i = 1; i <= 6; i++) {
-        bells.append("*").append(i).append(" пара:* `").append(bellScheduleService.getBellTime(Day.MONDAY, i)).append("`\n");
+        bells
+            .append("*")
+            .append(i)
+            .append(" пара:* `")
+            .append(bellScheduleService.getBellTime(Day.MONDAY, i))
+            .append("`\n");
       }
       bells.append("\n🔔 *Суббота:*\n");
       for (int i = 1; i <= 6; i++) {
-        bells.append("*").append(i).append(" пара:* `").append(bellScheduleService.getBellTime(Day.SATURDAY, i)).append("`\n");
+        bells
+            .append("*")
+            .append(i)
+            .append(" пара:* `")
+            .append(bellScheduleService.getBellTime(Day.SATURDAY, i))
+            .append("`\n");
       }
       SendMessage msg = new SendMessage(person.getChatId(), bells.toString().trim());
       msg.enableMarkdown(true);
@@ -111,7 +134,10 @@ public class CommandsHandler implements Handler {
 
     if (lower.equals("/today") || lower.equals("/tomorrow")) {
       if (person.getGroupNum() == 0) {
-        return List.of(new ErrorMessage(person.getChatId(), "Сначала укажите группу для чата командой `/group 234` (только для админов беседы)."));
+        return List.of(
+            new ErrorMessage(
+                person.getChatId(),
+                "Сначала укажите группу для чата командой `/group 234` (только для админов беседы)."));
       }
       return recessHandler.handle(update, person);
     }
@@ -127,8 +153,10 @@ public class CommandsHandler implements Handler {
     try {
       DayUtil.convertStrToDay(textMessage);
       if (person.getGroupNum() == 0) {
-        return List.of(new ErrorMessage(person.getChatId(), "Вы еще не выбрали группу. Отправьте номер вашей группы в чат (например, 234).
-Если возникла проблема — напишите @xvycy"));
+        return List.of(
+            new ErrorMessage(
+                person.getChatId(),
+                "Вы еще не выбрали группу. Отправьте номер вашей группы в чат (например, 234).\n\nЕсли возникла проблема — напишите @xvycy"));
       }
       return recessHandler.handle(update, person);
     } catch (Exception ignored) {
@@ -139,10 +167,15 @@ public class CommandsHandler implements Handler {
         continue;
       }
 
-      if (textMessage.startsWith(command.getCommand().toLowerCase())) {
+      if (textMessage.startsWith(command.getCommand().toLowerCase())
+          || textMessage
+              .replace("ℹ️ ", "")
+              .startsWith(command.getCommand().toLowerCase().replace("ℹ️ ", ""))) {
         List<SendMessage> res = command.handle(update, person);
         for (SendMessage msg : res) {
-          if (msg.getReplyMarkup() instanceof org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup
+          if (msg.getReplyMarkup()
+                  instanceof
+                  org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup
               && !command.getCommand().equals(MessagesConfig.LESSON_SCHEDULE_COMMAND)
               && !command.getCommand().equals(MessagesConfig.RECESS_SCHEDULE_COMMAND)) {
             MainKeyboard.addKeyboard(msg, person.isCompactMenu());
@@ -158,7 +191,8 @@ public class CommandsHandler implements Handler {
         try {
           int groupNum = Integer.parseInt(matcher.group());
           if (!lessonScheduleService.isGroupExists(groupNum)) {
-            return List.of(new ErrorMessage(person.getChatId(), MessagesConfig.GROUP_NOT_FOUND_EXCEPTION));
+            return List.of(
+                new ErrorMessage(person.getChatId(), MessagesConfig.GROUP_NOT_FOUND_EXCEPTION));
           }
           person.setGroupNum(groupNum);
           personService.save(person);
