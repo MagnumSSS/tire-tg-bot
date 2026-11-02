@@ -25,6 +25,7 @@ public class CallbackQueryHandler {
 
   private final TelegramBotConfiguration configuration;
   private final TelegramBot telegramBot;
+  private final ru.azenizzka.repositories.PersonRepository personRepository;
 
   private final Map<Long, Long> cooldownMap = new ConcurrentHashMap<>();
   private static final long COOLDOWN_MS = 5 * 60 * 1000;
@@ -36,9 +37,12 @@ public class CallbackQueryHandler {
           + "За повторные нарушения возможна вечная блокировка в боте.";
 
   public CallbackQueryHandler(
-      TelegramBotConfiguration configuration, @Lazy TelegramBot telegramBot) {
+      TelegramBotConfiguration configuration,
+      @Lazy TelegramBot telegramBot,
+      ru.azenizzka.repositories.PersonRepository personRepository) {
     this.configuration = configuration;
     this.telegramBot = telegramBot;
+    this.personRepository = personRepository;
   }
 
   public void handle(CallbackQuery callbackQuery, Person person) {
@@ -77,6 +81,7 @@ public class CallbackQueryHandler {
 
   private void handleToggleNotify(CallbackQuery query, Person person) {
     person.setNotificationsEnabled(!person.isNotificationsEnabled());
+    personRepository.save(person);
 
     updateSettingsMessage(query, person);
     answer(
@@ -90,6 +95,7 @@ public class CallbackQueryHandler {
       return;
     }
     person.setCompactMenu(!person.isCompactMenu());
+    personRepository.save(person);
 
     updateSettingsMessage(query, person);
     answer(query.getId(), "Вид главного меню обновлен!", false);
@@ -113,6 +119,7 @@ public class CallbackQueryHandler {
     }
 
     person.setMinimalistMode(!person.isMinimalistMode());
+    personRepository.save(person);
     updateSettingsMessage(query, person);
     answer(query.getId(), "Режим минимализма обновлен!", false);
 
