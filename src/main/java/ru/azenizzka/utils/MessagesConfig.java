@@ -14,6 +14,7 @@ public class MessagesConfig {
   public static final String DEL_ADMIN_COMMAND = "/deladmin";
   public static final String WARM_CACHE_COMMAND = "/warm";
   public static final String INFO_COMMAND = "/info";
+  public static final String REPORT_COMMAND = "/report";
 
   public static final String START_MESSAGE =
       "Привет! Чтобы бот мог присылать расписание, просто напиши номер своей группы цифрами прямо в этот чат (например: 232).";
@@ -22,7 +23,8 @@ public class MessagesConfig {
   public static final String CHANGE_GROUP_MESSAGE =
       "Введите номер вашей группы (только цифры, например: 232):";
   public static final String SUCCESS_CHANGE_GROUP_MESSAGE = "✅ Группа успешно сохранена";
-  public static final String NO_LESSONS_MESSAGE = "В этот день пар нет.";
+  public static final String NO_LESSONS_MESSAGE =
+      "🏖️ В этот день пар нет.\n\nВозможна ошибка со стороны бота. Если что, пишите @xvycy";
 
   public static final String HELP_MESSAGE = "Выберите нужный раздел в меню:";
   public static final String INFO_HEADER = "Всего пользователей: %d\n\n";

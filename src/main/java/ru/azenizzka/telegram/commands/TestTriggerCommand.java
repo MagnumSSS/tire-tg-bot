@@ -48,7 +48,7 @@ public class TestTriggerCommand implements Command {
       SendMessage msg =
           new SendMessage(
               person.getChatId(),
-              "Команды:\n`/test morning`\n`/test evening`\n`/test change <group>`");
+              "Команды:\n`/test morning`\n`/test evening`\n`/test change <group>`\n`/test report`");
       msg.enableMarkdown(true);
       return List.of(msg);
     }

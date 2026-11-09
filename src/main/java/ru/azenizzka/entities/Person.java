@@ -22,12 +22,19 @@ public class Person {
   private String chatId;
   private int groupNum;
   private String username;
-  private boolean isAdmin;
+
+  @Column(columnDefinition = "boolean default false")
+  private boolean isAdmin = false;
+
   private InputType inputType;
 
+  @Column(columnDefinition = "boolean default false")
   private boolean isBanned = false;
+
   private Long banUntil;
   private String banReason;
+
+  @Column(columnDefinition = "boolean default false")
   private boolean isReportMuted = false;
 
   @Column(columnDefinition = "boolean default false")

@@ -19,13 +19,21 @@
         </rollingPolicy>
     </appender>
 
+    <appender name="TelegramWarn" class="ru.azenizzka.telegram.handlers.AuditLogAppender">
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>WARN</level>
+        </filter>
+    </appender>
+
     <logger name="ru.azenizzka" level="debug" additivity="false">
         <appender-ref ref="Console" />
         <appender-ref ref="RollingFile" />
+        <appender-ref ref="TelegramWarn" />
     </logger>
 
     <root level="info">
         <appender-ref ref="Console" />
         <appender-ref ref="RollingFile" />
+        <appender-ref ref="TelegramWarn" />
     </root>
 </configuration>

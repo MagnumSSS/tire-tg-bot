@@ -24,6 +24,8 @@ import ru.azenizzka.telegram.handlers.MasterHandler;
 public class TelegramBot extends TelegramLongPollingBot {
   private final java.util.concurrent.atomic.AtomicBoolean isBroadcasting =
       new java.util.concurrent.atomic.AtomicBoolean(false);
+  private final java.util.concurrent.ExecutorService backgroundSenderExecutor =
+      java.util.concurrent.Executors.newSingleThreadExecutor();
   private static final long RATE_LIMIT_DELAY_MS = 55L;
 
   private final PersonRepository personRepository;
@@ -44,6 +46,10 @@ public class TelegramBot extends TelegramLongPollingBot {
 
   public static TelegramBot getInstance() {
     return instance;
+  }
+
+  public String getAuditLogChatId() {
+    return configuration != null ? configuration.getAuditLogChatId() : null;
   }
 
   @Override
@@ -172,7 +178,19 @@ public class TelegramBot extends TelegramLongPollingBot {
     try {
       SendMessage sendMessage = new SendMessage(chatId, text);
       sendMessage.enableMarkdown(true);
-      Message sent = execute(sendMessage);
+      Message sent;
+      try {
+        sent = execute(sendMessage);
+      } catch (TelegramApiRequestException parseEx) {
+        if (parseEx.getErrorCode() == 400
+            && parseEx.getApiResponse() != null
+            && parseEx.getApiResponse().contains("can't parse entities")) {
+          sendMessage.enableMarkdown(false);
+          sent = execute(sendMessage);
+        } else {
+          throw parseEx;
+        }
+      }
 
       groupPerson.setPinnedMessageId(sent.getMessageId());
       personRepository.save(groupPerson);
@@ -198,25 +216,22 @@ public class TelegramBot extends TelegramLongPollingBot {
   }
 
   public void broadcastAsync(List<SendMessage> messages, String reportChatId) {
-    if (!isBroadcasting.compareAndSet(false, true)) {
-      if (reportChatId != null) {
-        try {
-          SendMessage m =
-              new SendMessage(reportChatId, "⚠️ *Рассылка уже идет.* Дождитесь окончания текущей.");
-          m.enableMarkdown(true);
-          execute(m);
-        } catch (Exception ignored) {
-        }
+    if (messages == null || messages.isEmpty()) {
+      return;
+    }
+
+    if (reportChatId != null && !isBroadcasting.compareAndSet(false, true)) {
+      try {
+        SendMessage m =
+            new SendMessage(reportChatId, "⚠️ *Рассылка уже идет.* Дождитесь окончания текущей.");
+        m.enableMarkdown(true);
+        execute(m);
+      } catch (Exception ignored) {
       }
       return;
     }
 
-    if (messages == null || messages.isEmpty()) {
-      isBroadcasting.set(false);
-      return;
-    }
-
-    java.util.concurrent.CompletableFuture.runAsync(
+    backgroundSenderExecutor.submit(
         () -> {
           try {
             int success = 0;
@@ -232,7 +247,7 @@ public class TelegramBot extends TelegramLongPollingBot {
                   int retry = 3; // по умолчанию ждем 3 сек
                   if (e.getParameters() != null && e.getParameters().getRetryAfter() != null) {
                     retry = e.getParameters().getRetryAfter();
-                  } else {
+                  } else if (e.getMessage() != null) {
                     java.util.regex.Matcher m =
                         java.util.regex.Pattern.compile("retry after (\\d+)")
                             .matcher(e.getMessage());
@@ -241,6 +256,16 @@ public class TelegramBot extends TelegramLongPollingBot {
                   log.warn("Флуд-контроль (429). Пауза {} сек...", retry);
                   try {
                     Thread.sleep((retry + 1) * 1000L);
+                    execute(message);
+                    success++;
+                  } catch (Exception ex) {
+                    errors++;
+                  }
+                } else if (e.getErrorCode() == 400
+                    && e.getApiResponse() != null
+                    && e.getApiResponse().contains("can't parse entities")) {
+                  try {
+                    message.enableMarkdown(false);
                     execute(message);
                     success++;
                   } catch (Exception ex) {
@@ -286,7 +311,9 @@ public class TelegramBot extends TelegramLongPollingBot {
               }
             }
           } finally {
-            isBroadcasting.set(false);
+            if (reportChatId != null) {
+              isBroadcasting.set(false);
+            }
           }
         });
   }
@@ -304,6 +331,27 @@ public class TelegramBot extends TelegramLongPollingBot {
     for (SendMessage message : messages) {
       try {
         execute(message);
+      } catch (TelegramApiRequestException e) {
+        if (e.getErrorCode() == 400
+            && e.getApiResponse() != null
+            && e.getApiResponse().contains("can't parse entities")) {
+          try {
+            message.enableMarkdown(false);
+            execute(message);
+          } catch (TelegramApiException ex) {
+            log.error(
+                "Не удалось отправить сообщение в chatId {}: {}",
+                message.getChatId(),
+                ex.getMessage());
+          }
+        } else if (isDeadUserError(e)) {
+          cleanupDeadPerson(message.getChatId(), e.getMessage());
+        } else {
+          log.error(
+              "Не удалось отправить сообщение в chatId {}: {}",
+              message.getChatId(),
+              e.getMessage());
+        }
       } catch (TelegramApiException e) {
         if (isDeadUserError(e)) {
           cleanupDeadPerson(message.getChatId(), e.getMessage());

@@ -62,8 +62,9 @@ public class MasterHandler implements Handler {
     // 1. Аудит-чат
     if (person.getChatId().equals(configuration.getAuditLogChatId())) {
       person.setAdmin(true);
-      if (update.hasMessage() && update.getMessage().isReply()) {
-        return auditLogHandler.handle(update, person);
+      List<SendMessage> auditMessages = auditLogHandler.handle(update, person);
+      if (!auditMessages.isEmpty()) {
+        return auditMessages;
       }
       if (text.startsWith("/")) {
         return commandsHandler.handle(update, person);

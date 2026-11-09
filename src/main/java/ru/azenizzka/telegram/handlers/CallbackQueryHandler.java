@@ -3,7 +3,6 @@ package ru.azenizzka.telegram.handlers;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.meta.api.methods.AnswerCallbackQuery;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
@@ -24,7 +23,6 @@ import ru.azenizzka.telegram.messages.CustomMessage;
 public class CallbackQueryHandler {
 
   private final TelegramBotConfiguration configuration;
-  private final TelegramBot telegramBot;
   private final ru.azenizzka.repositories.PersonRepository personRepository;
 
   private final Map<Long, Long> cooldownMap = new ConcurrentHashMap<>();
@@ -38,11 +36,13 @@ public class CallbackQueryHandler {
 
   public CallbackQueryHandler(
       TelegramBotConfiguration configuration,
-      @Lazy TelegramBot telegramBot,
       ru.azenizzka.repositories.PersonRepository personRepository) {
     this.configuration = configuration;
-    this.telegramBot = telegramBot;
     this.personRepository = personRepository;
+  }
+
+  private TelegramBot getTelegramBot() {
+    return TelegramBot.getInstance();
   }
 
   public void handle(CallbackQuery callbackQuery, Person person) {
@@ -55,7 +55,8 @@ public class CallbackQueryHandler {
         || data.equals(SettingsCommand.TOGGLE_MENU_CALLBACK)
         || data.equals(SettingsCommand.TOGGLE_MINIMALIST_CALLBACK)) {
       if (isGroup
-          && !telegramBot.isGroupAdmin(person.getChatId(), callbackQuery.getFrom().getId())) {
+          && getTelegramBot() != null
+          && !getTelegramBot().isGroupAdmin(person.getChatId(), callbackQuery.getFrom().getId())) {
         answer(
             callbackQuery.getId(),
             "⛔ Менять настройки чата могут только администраторы группы!",
@@ -108,7 +109,9 @@ public class CallbackQueryHandler {
                 : "📅 Включено *полное меню* со всеми днями недели.");
     MainKeyboard.addKeyboard(kbUpdate, person.isCompactMenu(), person.isMinimalistMode());
     try {
-      telegramBot.execute(kbUpdate);
+      if (getTelegramBot() != null) {
+        getTelegramBot().execute(kbUpdate);
+      }
     } catch (TelegramApiException ignored) {
     }
   }
@@ -128,7 +131,9 @@ public class CallbackQueryHandler {
                   : "✨ Обычный режим включен.");
       MainKeyboard.addKeyboard(kbUpdate, person.isCompactMenu(), person.isMinimalistMode());
       try {
-        telegramBot.execute(kbUpdate);
+        if (getTelegramBot() != null) {
+          getTelegramBot().execute(kbUpdate);
+        }
       } catch (TelegramApiException ignored) {
       }
     }
@@ -142,7 +147,9 @@ public class CallbackQueryHandler {
       edit.setText(SettingsCommand.buildText(person));
       edit.enableMarkdown(true);
       edit.setReplyMarkup(SettingsCommand.buildInlineKeyboard(person));
-      telegramBot.execute(edit);
+      if (getTelegramBot() != null) {
+        getTelegramBot().execute(edit);
+      }
     } catch (TelegramApiException ignored) {
     }
   }
@@ -200,7 +207,9 @@ public class CallbackQueryHandler {
     try {
       SendMessage sendAlert = new SendMessage(configuration.getAuditLogChatId(), alertMessage);
       sendAlert.enableMarkdown(true);
-      telegramBot.execute(sendAlert);
+      if (getTelegramBot() != null) {
+        getTelegramBot().execute(sendAlert);
+      }
     } catch (TelegramApiException e) {
       log.error("Ошибка при отправке алерта в аудит-чат: ", e);
     }
@@ -225,7 +234,9 @@ public class CallbackQueryHandler {
       edit.setChatId(query.getMessage().getChatId().toString());
       edit.setMessageId(query.getMessage().getMessageId());
       edit.setReplyMarkup(markup);
-      telegramBot.execute(edit);
+      if (getTelegramBot() != null) {
+        getTelegramBot().execute(edit);
+      }
     } catch (TelegramApiException ignored) {
     }
   }
@@ -236,9 +247,11 @@ public class CallbackQueryHandler {
       answer.setCallbackQueryId(queryId);
       answer.setText(text);
       answer.setShowAlert(alert);
-      telegramBot.execute(answer);
+      if (getTelegramBot() != null) {
+        getTelegramBot().execute(answer);
+      }
     } catch (TelegramApiException e) {
-      log.error("Ошибка AnswerCallbackQuery: ", e);
+      log.debug("Не удалось ответить на CallbackQuery {}: {}", queryId, e.getMessage());
     }
   }
 }

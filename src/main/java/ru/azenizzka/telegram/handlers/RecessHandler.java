@@ -7,7 +7,6 @@ import org.telegram.telegrambots.meta.api.objects.Update;
 import ru.azenizzka.entities.Person;
 import ru.azenizzka.services.BellScheduleService;
 import ru.azenizzka.services.LessonScheduleService;
-import ru.azenizzka.telegram.TelegramBot;
 import ru.azenizzka.telegram.keyboards.MainKeyboard;
 import ru.azenizzka.telegram.keyboards.ReportKeyboard;
 import ru.azenizzka.telegram.messages.CustomMessage;
@@ -74,13 +73,6 @@ public class RecessHandler implements Handler {
 
     try {
       Day day = DayUtil.convertStrToDay(textMessage);
-
-      if (!isGroupChat) {
-        CustomMessage pleaseWaitMessage =
-            new CustomMessage(person.getChatId(), "⏳ Пожалуйста, подождите. Получаю расписание..");
-        MainKeyboard.addKeyboard(pleaseWaitMessage, person.isCompactMenu());
-        TelegramBot.getInstance().sendMessage(List.of(pleaseWaitMessage));
-      }
 
       List<List<String>> lessons = lessonScheduleService.getLessons(person.getGroupNum(), day);
 
