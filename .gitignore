@@ -16,3 +16,4 @@ bin
 .env
 repomix-output.xml
 changes.txt
+repomix*.xml

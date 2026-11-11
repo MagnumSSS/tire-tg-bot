@@ -596,17 +596,6 @@ public class LessonScheduleService {
   }
 
   String[][] buildMatrix(Element table) {
-    List<Element> trs = new ArrayList<>();
-    for (Element tr : table.select("tr")) {
-      if (tr.parent() == table
-          || (tr.parent() != null
-              && tr.parent().parent() == table
-              && (tr.parent().tagName().equalsIgnoreCase("tbody")
-                  || tr.parent().tagName().equalsIgnoreCase("thead")
-                  || tr.parent().tagName().equalsIgnoreCase("tfoot")))) {
-        trs.add(tr);
-      }
-    }
 
     List<List<String>> normalized = ru.azenizzka.utils.HtmlTableNormalizer.normalize(table);
     int rowCount = normalized.size();
