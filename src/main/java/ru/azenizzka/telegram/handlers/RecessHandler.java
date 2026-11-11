@@ -43,16 +43,20 @@ public class RecessHandler implements Handler {
         new StringBuilder("Расписание *" + groupNum + "* группы\n*" + label + "*\n\n");
 
     for (List<String> list : lessons) {
+      String rawNum = list.get(0) != null ? list.get(0).trim() : "";
       int lessonNum = 0;
       try {
-        lessonNum = Integer.parseInt(list.get(0).replaceAll("[^0-9]", ""));
+        lessonNum = Integer.parseInt(rawNum.replaceAll("[^0-9]", ""));
       } catch (Exception ignored) {
       }
 
-      String bellTime = bellScheduleService.getBellTime(day, lessonNum);
+      String bellTime = lessonNum > 0 ? bellScheduleService.getBellTime(day, lessonNum) : "";
 
-      result.append("*").append(list.get(0)).append(" пара:* ").append(list.get(1)).append("\n");
-      result.append("*Кабинет:* ").append(list.get(2)).append("\n");
+      String displayNum = rawNum.isBlank() ? "0" : rawNum;
+      result.append("*").append(displayNum).append(" пара:* ").append(list.get(1)).append("\n");
+      if (list.size() > 2 && list.get(2) != null && !list.get(2).isBlank()) {
+        result.append("*Кабинет:* ").append(list.get(2)).append("\n");
+      }
       if (!bellTime.isBlank()) {
         result.append(person.isMinimalistMode() ? "`" : "⏱ `").append(bellTime).append("`\n");
       }
